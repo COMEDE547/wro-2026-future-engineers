@@ -26,3 +26,8 @@ dist/
 *.pt
 *.pth
 *.engine
+
+# Round 2 detector: deploy model + baseline committed deliberately (5.4 MB total).
+# The 48 MB training checkpoint stays out - reproducible from strip.py + train.py.
+!src/Round 2/detector/models/*.onnx
+!src/Round 2/detector/models/*.pt
