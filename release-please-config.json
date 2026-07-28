@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "package-name": "wro-2026-future-engineers",
+      "changelog-path": "CHANGELOG.md",
+      "changelog-sections": [
+        { "type": "feat",     "section": "Features" },
+        { "type": "fix",      "section": "Bug Fixes" },
+        { "type": "perf",     "section": "Performance" },
+        { "type": "docs",     "section": "Documentation" },
+        { "type": "test",     "section": "Testing" },
+        { "type": "refactor", "section": "Refactoring" },
+        { "type": "chore",    "section": "Chores", "hidden": true }
+      ]
+    }
+  }
+}
