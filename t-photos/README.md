@@ -1,4 +1,6 @@
-﻿Team's photos
-====
+# Team photos
 
-This directory must contain 2 photos of the team (an official one and one funny photo with all team members)
+Two photos of the team are required: one official, one informal.
+
+**Status: pending.** Team roster is not yet finalised — the category requires two
+to three members plus a coach aged 18 or over.
