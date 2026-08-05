@@ -29,10 +29,10 @@ kept for comparison and as a lighter fallback.
 | no call | 9.7 % | **0.8 %** |
 | false detections per empty frame | 0.283 | **0.083** |
 | decision accuracy, both pillars in frame | 0.617 | **0.867** |
-| wrong side, both pillars in frame | 31.7 % | **13.3 %** |
+| wrong side, both pillars in frame | 31.7 % | **18.3 %** |
 
 The last row is the important one: when a red and a green pillar are both in
-view — the normal condition on the track — wrong-side calls more than halved.
+view — the normal condition on the track — wrong-side calls fell from 31.7 % to 18.3 %.
 
 ### Operating point
 
