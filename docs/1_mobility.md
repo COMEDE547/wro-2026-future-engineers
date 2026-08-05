@@ -1,9 +1,12 @@
 # 1 — Mobility & Mechanical Design
 
-**Honest status: steering is implemented and tuned. Propulsion is not chosen.**
-The vehicle holds and corrects a heading but cannot yet drive itself forward.
-This is the critical-path hardware gap (risk R10) and this document does not
-write around it.
+**Honest status: the vehicle is built to its Round-1 configuration — chassis,
+single-servo Ackermann steering, and an N20 drive through a LEGO differential
+are physically fitted, with all three TF-Lunas and the IMU mounted. The
+Raspberry Pi 5 and camera are not yet on the vehicle, the gear-ratio / battery
+specs are undocumented, and bring-up (direction, duty, corner tests) is in
+progress.** The critical-path gap (risk R10) has narrowed from "no build" to
+"no measured working point", and this document does not write around it.
 
 ---
 
@@ -42,26 +45,55 @@ every corner, and an integrator winds up across each step and then overshoots th
 recovery. Steady-state heading error on a straight is bounded by servo resolution,
 not by the absence of an I term.
 
+### Drive — N20 via TB6612 (chosen 2026-08-01, integrated 2026-08-03)
+
+| Parameter | Value | Source |
+|---|---|---|
+| Motor | N20 gearmotor — gear ratio and rated voltage pending spec | decision log |
+| Transmission | spur pinion into a LEGO differential on the rear axle | bottom view below |
+| Driver | TB6612FNG, channel A | `src/Round 1/round 1/round 1.ino` |
+| Pins | AIN1 `GPIO25` · AIN2 `GPIO26` · PWMA `GPIO33` · STBY `GPIO27` (or tied 3V3) | firmware |
+| PWM | 20 kHz, 10-bit (0-1023), cruise duty 550 | firmware |
+| Stop logic | an observer counts the 90-deg heading steps the corner logic makes; after 12 turns and heading settled within 15 deg (4 s failsafe), a 1500 ms timed run-on, then short-circuit brake | firmware |
+
+Integration is append-only: the original steering / corner logic is
+byte-untouched, and the module observes `targetHeading` steps rather than
+modifying the trigger code. Physical bring-up — direction check, `MOTOR_INVERT`,
+duty tune on the mat — is pending the build.
+
+![Chassis prototype during steering-centre calibration](img/chassis-prototype-steering-bringup-1.jpg)
+*Chassis prototype during steering bring-up — servo tester holding the 90-deg
+centre position. Prototype hardware; the competition chassis configuration is
+not yet frozen.*
+
+![Underside: N20 into the LEGO differential](../v-photos/vehicle-bottom.jpg)
+*Underside of the built vehicle: the N20's pinion drives a LEGO differential on
+the rear axle; the front Ackermann linkage and printed servo mount are at the
+bottom of frame.*
+
 ---
 
 ## 2. What does not exist
 
 | Item | State | Blocks |
 |---|---|---|
-| Drive motor | **Unchosen** | Everything below, plus the power budget |
-| Chassis | **Unchosen** | Mass budget, camera mounting, CAD in `models/` |
-| Gearing | **Unchosen** | Speed / torque working point |
-| Wheels and tyres | **Unchosen** | Traction limit, effective gear ratio |
+| Drive motor + driver | **Chosen — N20 via TB6612**, integrated in firmware; bring-up pending build | Gear-ratio / voltage spec feeds the power budget |
+| Chassis | **Built** — Lego Technic hybrid, Round-1 configuration; CAD/STLs not yet in `models/` | Mass measurement, camera mounting |
+| Gearing | **Unchosen** — the N20's integrated ratio, spec pending | Speed / torque working point |
+| Wheels and tyres | **Fitted** — mixed sizes, larger rear / smaller front; diameters unmeasured | Traction limit, effective gear ratio |
 
-`models/` is empty for this reason. It is not an oversight — there is nothing to
-put in it yet.
+`models/` is still empty because the CAD / STL sources for the printed parts
+(sensor mounts, servo mount, motor mount) have not been collected yet — the
+parts themselves are on the vehicle.
 
 ---
 
 ## 3. How the drivetrain will be chosen
 
-The method is fixed even though the choice is not. Writing it down now means the
-selection can be criticised before money is spent.
+The method was fixed before the motor family was chosen and still governs the
+open part of the choice: the N20 + TB6612 pick constrains the space, but ratio,
+wheels and speed remain to be derived. Writing it down first means the selection
+can be criticised before money is spent.
 
 ### Hard bounds
 
@@ -101,9 +133,11 @@ afterwards.
 
 ## 4. Open
 
-- Drive motor and chassis selection — **critical path**.
+- Chassis selection and the drivetrain working point (ratio / wheels) —
+  **critical path**. Motor and driver are chosen.
 - Camera mount at ~100 mm height and 10-17 deg pitch has a geometric
   justification ([2 — Power & Sensors](2_power_and_sensors.md#3-camera-placement-justified-by-field-geometry))
   but no physical bracket; it depends on the chassis.
-- CAD for `models/`, wiring schematic for `schemes/`.
+- CAD for `models/`. The signal-wiring schematic is now in `schemes/`; the
+  power-tree schematic is pending battery selection.
 - Six vehicle photos for `v-photos/` — blocked on a built vehicle.

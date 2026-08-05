@@ -170,6 +170,27 @@ one-off shuffle.
 
 ---
 
+### D6 — Neural detector superseded in the field; calibrated per-venue picker adopted
+
+(2026-08-05.) The val-split winner did not transfer. `nanodet_lite` won six of
+seven metrics on the leakage-free split, and the write-up said at the time that
+every number rested on 597 images from one lighting session with zero venue
+clutter. Field testing observed exactly that failure mode: accuracy on real
+footage fell below usable (quantitative capture pending). The alternatives
+failed on their own axes — a fixed-band HSV pipeline degraded under lighting and
+brightness shifts, and YOLO26n failed under concurrent runtime load (suspected
+OOM; kernel-log capture pending). The stack that survived reverses the losing
+philosophy on both axes: **calibrated per-venue** instead of fixed
+published-value bands, and **classical Lab chroma-distance** instead of learned
+features. One (a,b) chroma disc per colour, sampled interactively at the venue
+(median + MAD tolerance, capped), an L floor and a chroma gate, largest
+connected component, 3-of-5 temporal vote. Its own sub-iterations are on
+record: a 3-disc / 6-bucket brightness variant missed between levels, and a
+brightness-ordered capsule chain produced fewer detections with degenerate
+boxes — the single-disc form is the one that passed hardware testing. Next
+measurement: the current stack's accuracy on the same footage and ms/frame on
+the Pi 5, so this entry can carry the numbers its predecessors did.
+
 ## 3. Risk register
 
 | ID | Risk | Likelihood | Impact | Mitigation | State |
@@ -214,7 +235,9 @@ Stated here rather than left for a reader to discover.
   directions. Every such figure is labelled.
 - **Every number rests on 597 images from a single lighting session** with no
   other robots, spectators, banners or reflective flooring present.
-- **The Obstacle Challenge is specified but not implemented.** Strategy and state
-  machine are in [3 — Software Architecture](3_software.md); the code does not
-  exist yet.
-- **The drivetrain does not exist.** See [1 — Mobility](1_mobility.md).
+- **The Obstacle Challenge controller is implemented off-repo, not yet landed.**
+  Strategy and state machine are in [3 — Software Architecture](3_software.md);
+  the code lands after integration fixes.
+- **The drivetrain is integrated in firmware but not built.** Motor and driver
+  are chosen (N20 via TB6612); the working point and chassis are not. See
+  [1 — Mobility](1_mobility.md).
