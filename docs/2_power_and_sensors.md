@@ -119,6 +119,13 @@ silhouette against the far wall and the hue band picks up wall colour. Mounting
 materially higher compresses the difference in base-row between near and far
 pillars, which is exactly the signal the selection rule depends on.
 
+![Camera POV, near pillar](img/camera-pov-near.jpg)
+![Camera POV, mid-range pillar](img/camera-pov-mid.jpg)
+![Camera POV, far pillar](img/camera-pov-far.jpg)
+*The mount-height argument, photographed from the camera position on the test
+mat: the near pillar's base sits low in the frame, the far pillar's base sits
+just under the horizon. Base row is the range proxy.*
+
 **Resolved (2026-08-05): the fitted camera is a USB UVC webcam** (MJPEG,
 640 x 480 @ 30 fps; exact model pending identification). Consequence: the
 high-frame-rate CSI capture path is gated on purchasing a CSI module, so 30 fps

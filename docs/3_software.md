@@ -99,6 +99,13 @@ fixed published-value-band philosophy — reasoning in
 [D6](4_systems_and_decisions.md#d6--neural-detector-superseded-in-the-field-calibrated-per-venue-picker-adopted).
 The runtime is implemented off-repo and lands with the Round 2 controller.
 
+![Live detection on the Pi 5](img/detector-live-pi5-dual-pillar.jpg)
+![Bench setup](img/detector-bench-setup.jpg)
+*Bench test on the Raspberry Pi 5 against physical pillars: dual-pillar frame
+classified with per-colour boxes. The overlay's fps and per-frame-ms figures
+will be quoted in the metrics section once pinned to the exact build under
+test.*
+
 **Superseded (kept as evidence):** `nanodet_lite`, 1,167,660 parameters, 4.52 MB
 ONNX — won the val split but did not transfer to real footage. Full write-up and
 reproduction steps: [`src/Round 2/detector/README.md`](../src/Round%202/detector/README.md);

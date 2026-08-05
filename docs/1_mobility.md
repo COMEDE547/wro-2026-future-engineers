@@ -58,6 +58,11 @@ byte-untouched, and the module observes `targetHeading` steps rather than
 modifying the trigger code. Physical bring-up — direction check, `MOTOR_INVERT`,
 duty tune on the mat — is pending the build.
 
+![Chassis prototype during steering-centre calibration](img/chassis-prototype-steering-bringup-1.jpg)
+*Chassis prototype during steering bring-up — servo tester holding the 90-deg
+centre position. Prototype hardware; the competition chassis configuration is
+not yet frozen.*
+
 ---
 
 ## 2. What does not exist
