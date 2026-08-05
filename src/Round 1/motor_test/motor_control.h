@@ -54,10 +54,10 @@
 #define DRIVE_MODE MODE_PWM_DIR      // <-- pick MODE_PWM_DIR / MODE_TWO_PIN / MODE_ESC
 #endif
 
-const int PIN_DRIVE_PWM  = 25;   // PWM_DIR: EN/PWM · TWO_PIN: input A · ESC: signal
-const int PIN_DRIVE_IN1  = 26;   // PWM_DIR: direction 1 · others: unused
-const int PIN_DRIVE_IN2  = 27;   // PWM_DIR: direction 2 · TWO_PIN: input B
-const int PIN_DRIVE_STBY = -1;   // TB6612 STBY pin, -1 if tied high / not present
+const int PIN_DRIVE_PWM  = 33;   // PWM_DIR: EN/PWM · TWO_PIN: input A · ESC: signal
+const int PIN_DRIVE_IN1  = 25;   // PWM_DIR: direction 1 · others: unused
+const int PIN_DRIVE_IN2  = 26;   // PWM_DIR: direction 2 · TWO_PIN: input B
+const int PIN_DRIVE_STBY = 27;   // TB6612 STBY pin, -1 if tied high / not present
 
 const bool  DRIVE_INVERT     = false;   // flip if "forward" runs backward
 const float DRIVE_MAX        = 0.60f;   // bring-up cap — raise to 1.0 once
