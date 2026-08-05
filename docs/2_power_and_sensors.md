@@ -191,10 +191,11 @@ status is a known gap, not an oversight.
 
 **Not yet measured, and deliberately not estimated.**
 
-Battery chemistry, capacity and regulation are unfixed. The drive motor is now
-chosen (N20 via TB6612), but its gear-ratio / voltage spec — which sets the
-dominant load — is still pending, so a budget would still be a guess presented
-as a table (risk R10).
+A battery pack and a dual-rail buck module are now physically fitted, but the
+pack is unlabelled — chemistry, cell count and capacity are unconfirmed — and
+the N20's gear-ratio / voltage spec is still pending. Until those are read off
+the hardware, a budget would still be a guess presented as a table (risk R10).
+Measurement is now unblocked.
 
 What will be measured, per rail, once the drivetrain exists:
 

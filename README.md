@@ -20,7 +20,7 @@ Olympiad Future Engineers** category, season **2026**.
 | **Validation** | 473 / 124 group-wise split, leakage-audited. 597 source images, **one lighting session**. |
 | **Open Challenge** | Implemented |
 | **Obstacle Challenge** | **Implemented off-repo** — controller + Pi runtime bench-tested; repo landing after integration fixes (radio removal, I2C map verification) |
-| **Drivetrain** | **Motor chosen and integrated in firmware** — N20 via TB6612, append-only module. Chassis, gearing, wheels, battery pending; critical path. |
+| **Drivetrain** | **Built (Round-1 configuration)** — N20 via TB6612 through a LEGO differential; Ackermann steering; bring-up in progress. Working point (ratio, diameters, mass) unmeasured. |
 
 ---
 
@@ -54,7 +54,7 @@ src/Round 2/    superseded detector (kept as evidence) + classical HSV pipeline
 models/         CAD / printable parts        — empty, no chassis exists yet
 schemes/        electromechanical schematics — signal wiring v0.1; power tree pending
 t-photos/       team photos                  — pending
-v-photos/       vehicle photos               — pending a built vehicle
+v-photos/       vehicle photos               — 6 views present (Round-1 config)
 video/          performance video links      — pending a driving vehicle
 other/          datasheets, setup notes
 ```
@@ -87,7 +87,7 @@ Libraries: Adafruit BNO055, Adafruit Unified Sensor, Adafruit BusIO, ESP32Servo.
 
 | Artifact | Required | Status |
 |---|---|---|
-| 6 vehicle photos — every side, top and bottom | Yes | **Pending** — requires a built vehicle |
+| 6 vehicle photos — every side, top and bottom | Yes | **Present** — `v-photos/`, Round-1 configuration; refreshed once the Pi 5 + camera are mounted |
 | 2 team photos | Yes | **Pending** |
 | Performance video, >= 30 s autonomous driving, one per challenge | Yes | **Pending** — requires a driving vehicle |
 | Electromechanical schematic | Yes | **Partial** — signal wiring v0.1 in `schemes/`; power tree pending battery selection |
@@ -130,8 +130,9 @@ Stated here rather than left for a reader to find.
   then [`docs/3_software.md`](docs/3_software.md) is the specification of record.
 - **The camera is a USB UVC webcam; the exact model is not yet identified**, so
   no field-of-view or angular-resolution figure is quoted.
-- **There is no built vehicle.** Drive is integrated in firmware; until a chassis
-  exists the vehicle cannot drive.
+- **The vehicle is built to Round-1 configuration only.** The Raspberry Pi 5 and
+  camera are not yet mounted, and drive bring-up (direction, duty, corner tests)
+  is unfinished.
 
 ---
 

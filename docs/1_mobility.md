@@ -1,10 +1,12 @@
 # 1 — Mobility & Mechanical Design
 
-**Honest status: steering is implemented and tuned; the drive motor and driver
-are chosen and integrated in firmware (N20 via TB6612, append-only module). The
-working point — gear ratio, wheels, chassis, battery — is not chosen, and no
-vehicle is built.** The critical-path hardware gap (risk R10) has narrowed from
-"no propulsion" to "no build", and this document does not write around it.
+**Honest status: the vehicle is built to its Round-1 configuration — chassis,
+single-servo Ackermann steering, and an N20 drive through a LEGO differential
+are physically fitted, with all three TF-Lunas and the IMU mounted. The
+Raspberry Pi 5 and camera are not yet on the vehicle, the gear-ratio / battery
+specs are undocumented, and bring-up (direction, duty, corner tests) is in
+progress.** The critical-path gap (risk R10) has narrowed from "no build" to
+"no measured working point", and this document does not write around it.
 
 ---
 
@@ -48,6 +50,7 @@ not by the absence of an I term.
 | Parameter | Value | Source |
 |---|---|---|
 | Motor | N20 gearmotor — gear ratio and rated voltage pending spec | decision log |
+| Transmission | spur pinion into a LEGO differential on the rear axle | bottom view below |
 | Driver | TB6612FNG, channel A | `src/Round 1/round 1/round 1.ino` |
 | Pins | AIN1 `GPIO25` · AIN2 `GPIO26` · PWMA `GPIO33` · STBY `GPIO27` (or tied 3V3) | firmware |
 | PWM | 20 kHz, 10-bit (0-1023), cruise duty 550 | firmware |
@@ -63,6 +66,11 @@ duty tune on the mat — is pending the build.
 centre position. Prototype hardware; the competition chassis configuration is
 not yet frozen.*
 
+![Underside: N20 into the LEGO differential](../v-photos/vehicle-bottom.jpg)
+*Underside of the built vehicle: the N20's pinion drives a LEGO differential on
+the rear axle; the front Ackermann linkage and printed servo mount are at the
+bottom of frame.*
+
 ---
 
 ## 2. What does not exist
@@ -70,12 +78,13 @@ not yet frozen.*
 | Item | State | Blocks |
 |---|---|---|
 | Drive motor + driver | **Chosen — N20 via TB6612**, integrated in firmware; bring-up pending build | Gear-ratio / voltage spec feeds the power budget |
-| Chassis | **Unchosen** | Mass budget, camera mounting, CAD in `models/` |
+| Chassis | **Built** — Lego Technic hybrid, Round-1 configuration; CAD/STLs not yet in `models/` | Mass measurement, camera mounting |
 | Gearing | **Unchosen** — the N20's integrated ratio, spec pending | Speed / torque working point |
-| Wheels and tyres | **Unchosen** | Traction limit, effective gear ratio |
+| Wheels and tyres | **Fitted** — mixed sizes, larger rear / smaller front; diameters unmeasured | Traction limit, effective gear ratio |
 
-`models/` is empty for this reason. It is not an oversight — there is nothing to
-put in it yet.
+`models/` is still empty because the CAD / STL sources for the printed parts
+(sensor mounts, servo mount, motor mount) have not been collected yet — the
+parts themselves are on the vehicle.
 
 ---
 

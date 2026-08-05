@@ -4,8 +4,9 @@
 ESP32 + PCA9548A I2C multiplexer + 3x TF-Luna + BNO055 + steering servo +
 TB6612 / N20 drive, plus the Raspberry Pi 5 serial link and USB camera.
 
-**Still pending:** the power tree — battery, 5 V regulation and the Pi 5 supply
-are unchosen, and they are the remaining parts a schematic exists to document.
+**Still pending:** the power tree — a battery pack and dual-rail buck are now
+fitted but unlabelled / undocumented; the tree gets drawn once their specs are
+read off the hardware.
 See the power-budget section of
 [`docs/2_power_and_sensors.md`](../docs/2_power_and_sensors.md#6-power-budget).
 

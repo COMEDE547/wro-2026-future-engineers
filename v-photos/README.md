@@ -1,9 +1,18 @@
 # Vehicle photos
 
-Six photos of the vehicle are required: front, back, left, right, top and bottom.
+Six views of the built vehicle — front, rear, left, right, top and bottom —
+as required by the rules.
 
-**Status: pending.** The chassis and drivetrain are not yet selected, so there is
-no vehicle to photograph. See [`docs/1_mobility.md`](../docs/1_mobility.md).
+**Configuration shown: Round 1.** ESP32, PCA9548A mux, 3x TF-Luna in printed
+mounts (front + both sides), IMU, steering servo, N20 drive through a LEGO
+differential, battery pack and buck module. The Raspberry Pi 5 and camera are
+not yet mounted; this set will be refreshed once they are.
 
-This directory is empty because the artifact does not exist, not because it was
-forgotten.
+| View | File |
+|---|---|
+| Front | `vehicle-front.jpg` |
+| Rear | `vehicle-rear.jpg` |
+| Left | `vehicle-left.jpg` |
+| Right | `vehicle-right.jpg` |
+| Top | `vehicle-top.jpg` |
+| Bottom | `vehicle-bottom.jpg` |
