@@ -1,5 +1,12 @@
 # Round 2 — Obstacle Challenge pillar detector
 
+> **Status (2026-08-05): superseded as the competition stack.** Field testing
+> found these val-split numbers did not transfer to real footage — the single
+> lighting session and zero venue clutter named under "Known limitations" were
+> the cause. Kept intact and runnable as iteration evidence. Current Round 2
+> stack: calibrated-Lab colour picker — see
+> [`docs/3_software.md`](../../../docs/3_software.md#3-detection-stack).
+
 Detects the red and green traffic-sign pillars and outputs the pass side:
 **red → `right`, green → `left`** (WRO Future Engineers General Rules §13).
 

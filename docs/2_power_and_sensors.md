@@ -21,7 +21,7 @@ steering loop — risk R7.
 | **BNO055** 9-DOF IMU | 1 | I2C `0x28`, mux ch4 | Absolute Euler yaw, 0-360 deg | MPU6050 — see below |
 | **TF-Luna** LiDAR | 3 | I2C `0x10`, mux ch0/1/2 | Distance, left / centre / right | HC-SR04 — see below |
 | **HC-SR04** ultrasonic | 3 | GPIO, interrupt-driven | Distance, front / left / right | *Retained as an alternative prototype, not the primary stack* |
-| **Camera** | 1 | Pi 5 CSI / USB | Pillar colour and bearing | — module not yet fixed, see open items |
+| **Camera** | 1 | USB UVC webcam | Pillar colour and bearing | model pending identification; 30 fps ceiling until a CSI module is fitted |
 | **PCA9548A** mux | 1 | I2C `0x70` | 8-channel I2C fan-out | Mandatory — see address collision below |
 
 ### Why absolute-heading IMU over gyro integration
@@ -119,10 +119,11 @@ silhouette against the far wall and the hue band picks up wall colour. Mounting
 materially higher compresses the difference in base-row between near and far
 pillars, which is exactly the signal the selection rule depends on.
 
-**Open:** the camera module physically fitted is not yet fixed (Module 2 /
-Module 3 / USB). Field of view and therefore the pixel budget per pillar at a
-given range are unresolved until it is, so no angular-resolution figure is quoted
-here.
+**Resolved (2026-08-05): the fitted camera is a USB UVC webcam** (MJPEG,
+640 x 480 @ 30 fps; exact model pending identification). Consequence: the
+high-frame-rate CSI capture path is gated on purchasing a CSI module, so 30 fps
+is the current ceiling. Field of view — and therefore the pixel budget per
+pillar at a given range — will be quoted once the model is identified.
 
 ---
 
@@ -148,6 +149,13 @@ negatives for the same reason.
 **Augmentation follows from this:** hue-jitter is disabled, because hue *is* the
 class label. Value, saturation, gamma and synthetic cast shadows are used
 instead — those are the properties venue lighting actually varies.
+
+**Reversal (2026-08-05):** field testing showed fixed published-value bands
+degrade under venue lighting variation, and the current stack calibrates **per
+venue** by interactive sampling instead — one Lab chroma disc per colour. The
+published RGB values remain the reference the sampled discs are sanity-checked
+against. Reasoning:
+[D6](4_systems_and_decisions.md#d6--neural-detector-superseded-in-the-field-calibrated-per-venue-picker-adopted).
 
 ### IMU
 
@@ -176,9 +184,10 @@ status is a known gap, not an oversight.
 
 **Not yet measured, and deliberately not estimated.**
 
-Battery chemistry, capacity and regulation are unfixed because the drive motor —
-the dominant load — is unchosen (risk R10). A budget written before the largest
-term is known would be a guess presented as a table.
+Battery chemistry, capacity and regulation are unfixed. The drive motor is now
+chosen (N20 via TB6612), but its gear-ratio / voltage spec — which sets the
+dominant load — is still pending, so a budget would still be a guess presented
+as a table (risk R10).
 
 What will be measured, per rail, once the drivetrain exists:
 

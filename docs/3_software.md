@@ -37,11 +37,14 @@ and there is no landmark in the Open Challenge to correct against.
 
 ---
 
-## 2. Obstacle Challenge — specified, not implemented
+## 2. Obstacle Challenge — implemented off-repo, pending landing
 
-**Status: the code does not exist.** The detector exists and is measured; the
-state machine below is a specification, not a description. It is documented now
-so the reasoning is on record and can be criticised before it is built.
+**Status: controller and Pi runtime are implemented and bench-tested off this
+repository.** They land here after three integration fixes: the wireless
+telemetry link is removed for rule 11.10 compliance, the BNO055 mux-channel map
+is verified against the physical harness, and driver standby handling is
+confirmed. Until they land, the state machine below is the specification of
+record — written before the build so the reasoning could be criticised first.
 
 ```mermaid
 stateDiagram-v2
@@ -85,20 +88,32 @@ blocked on the drivetrain (see [1 — Mobility](1_mobility.md), risk R10).
 
 ---
 
-## 3. The detector
+## 3. Detection stack
 
-Full write-up, including reproduction steps, is in
-[`src/Round 2/detector/README.md`](../src/Round%202/detector/README.md).
+**Stack of record (2026-08-05): calibrated-Lab colour picker.** One (a,b) chroma
+disc per colour in CIELab, sampled interactively at the venue (median + MAD sets
+the tolerance, capped), with an L floor and a chroma gate; largest connected
+component with extent and aspect gates; 3-of-5 temporal vote; nearest pillar by
+lowest box bottom edge. Per-venue calibration is a deliberate reversal of the
+fixed published-value-band philosophy — reasoning in
+[D6](4_systems_and_decisions.md#d6--neural-detector-superseded-in-the-field-calibrated-per-venue-picker-adopted).
+The runtime is implemented off-repo and lands with the Round 2 controller.
 
-Shipping model: `nanodet_lite`, 1,167,660 parameters, 4.52 MB ONNX, fixed
-320 x 320 input, opset 11. Selection evidence against the `tiny_pillar` baseline
-is in [4 — Systems Thinking](4_systems_and_decisions.md#d2--tiny_pillar-111-k-params-rejected-in-favour-of-nanodet_lite-117-m-params).
+**Superseded (kept as evidence):** `nanodet_lite`, 1,167,660 parameters, 4.52 MB
+ONNX — won the val split but did not transfer to real footage. Full write-up and
+reproduction steps: [`src/Round 2/detector/README.md`](../src/Round%202/detector/README.md);
+selection evidence vs `tiny_pillar`:
+[4 — Systems Thinking](4_systems_and_decisions.md#d2--tiny_pillar-111-k-params-rejected-in-favour-of-nanodet_lite-117-m-params).
 
 ---
 
 ## 4. Metrics used to validate performance
 
 All figures on the leakage-free group-wise validation split (124 real images).
+They belong to the superseded neural stack and are retained as selection
+evidence; the *method* — the sweep, asymmetric error costs, failure
+decomposition — carries over to the current stack, whose own figures are the
+next measurement.
 
 ### Confidence-threshold sweep
 
@@ -171,8 +186,10 @@ clocks and for different reasons.
 | HSV v1 | Hue-band threshold + contours + morphological opening | Opening dominated connected-components cost |
 | HSV v4.1 | Dual classifier with startup auto-select, opening removed | 0.43 ms/frame; still the fastest thing measured |
 | `tiny_pillar` | 111 K-param detector written from scratch | Abstains 9.7 % of the time; caution is not accuracy |
-| `nanodet_lite` | NanoDet-Plus stripped to 45 files, no Lightning/yacs/omegaconf/pycocotools | Shipping. Six of seven metrics. |
+| `nanodet_lite` | NanoDet-Plus stripped to 45 files, no Lightning/yacs/omegaconf/pycocotools | Won the val split (six of seven metrics); **did not transfer to real footage** — single-session, zero-clutter data. Superseded 2026-08-05. |
 | HSV rescoring | Proposed confidence re-weighting | Rejected on a ceiling calculation of <= 1 point |
 | ROI + CNN verifier | Proposed fallback architecture | Voided: a verifier cannot recover a miss |
+| YOLO26 (Ultralytics) | 9.47 M-param end-to-end detector; `s` measured ~30 fps @ 224 on the Pi 5 | Trained on the leaky split (numbers withdrawn); the smaller `n` variant failed under concurrent runtime load — suspected OOM, kernel-log capture pending |
+| Calibrated-Lab picker | Per-venue interactive calibration: one (a,b) chroma disc per colour + L floor; CCL; 3-of-5 vote | **Current.** Fixed bands degraded under lighting / brightness variation; per-venue sampling is the reversal that survived. Sub-iterations (3-disc brightness buckets, capsule chain) tested and killed — the single disc is what passed hardware testing. Accuracy and ms/frame capture pending |
 
 Full reasoning for each in [4 — Systems Thinking & Engineering Decisions](4_systems_and_decisions.md).

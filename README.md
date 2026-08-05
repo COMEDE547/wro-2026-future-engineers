@@ -15,12 +15,12 @@ Olympiad Future Engineers** category, season **2026**.
 | **Steering** | Single-servo Ackermann, 45-135 deg travel, proportional on heading error at 1.5 servo-deg/deg — saturating at 30 deg of error |
 | **Heading** | BNO055 absolute yaw. Corner detection is a *rising-edge* test on a side TF-Luna crossing 150 cm |
 | **Range sensing** | 3x TF-Luna behind a PCA9548A I2C multiplexer (all three share address `0x10`) |
-| **Pillar detector** | `nanodet_lite` — 1,167,660 params, 4.52 MB ONNX, 320x320, opset 11 |
-| **Detector accuracy** | macro F1 **0.898** · pass-side decision accuracy **0.941** · wrong side **5.1 %** · no call **0.8 %** · **0.083** false detections per empty frame |
+| **Pillar detection** | **Calibrated-Lab colour picker** — one (a,b) chroma disc per colour, sampled at the venue; the prior neural stack was superseded 2026-08-05 |
+| **Why the neural stack lost** | `nanodet_lite` val decision accuracy **0.941** did not transfer to real footage — single-session, zero-clutter training data (a limit stated at training time, then observed) |
 | **Validation** | 473 / 124 group-wise split, leakage-audited. 597 source images, **one lighting session**. |
 | **Open Challenge** | Implemented |
-| **Obstacle Challenge** | **Specified, not implemented** — state machine and strategy documented, code not written |
-| **Drivetrain** | **Not chosen.** The vehicle steers but does not yet drive. Critical path. |
+| **Obstacle Challenge** | **Implemented off-repo** — controller + Pi runtime bench-tested; repo landing after integration fixes (radio removal, I2C map verification) |
+| **Drivetrain** | **Motor chosen and integrated in firmware** — N20 via TB6612, append-only module. Chassis, gearing, wheels, battery pending; critical path. |
 
 ---
 
@@ -30,9 +30,9 @@ Organised against the five criteria WRO uses to score engineering documentation.
 
 | # | Criterion | Document | State |
 |---|---|---|---|
-| 1 | Mobility & Mechanical Design | [`docs/1_mobility.md`](docs/1_mobility.md) | Steering documented; **drivetrain unchosen** |
+| 1 | Mobility & Mechanical Design | [`docs/1_mobility.md`](docs/1_mobility.md) | Steering + drive integration documented; **working point (ratio / wheels / chassis) unchosen** |
 | 2 | Power & Sensor Architecture | [`docs/2_power_and_sensors.md`](docs/2_power_and_sensors.md) | Sensors and camera geometry documented; **power budget unmeasured** |
-| 3 | Software Architecture & Obstacle Strategy | [`docs/3_software.md`](docs/3_software.md) | Open Challenge implemented; Obstacle Challenge specified |
+| 3 | Software Architecture & Obstacle Strategy | [`docs/3_software.md`](docs/3_software.md) | Open implemented (drives); Obstacle implemented off-repo, pending landing |
 | 4 | Systems Thinking & Engineering Decisions | [`docs/4_systems_and_decisions.md`](docs/4_systems_and_decisions.md) | Decision log, rejected alternatives, risk register |
 | 5 | Reproducibility & Repository Quality | [`docs/5_reproducibility.md`](docs/5_reproducibility.md) | Reproduction steps, licensing, versioning policy |
 | — | Testing workflow | [`docs/tests.md`](docs/tests.md) | T1-T4 running; T5-T7 blocked on hardware |
@@ -50,9 +50,9 @@ and rejected and the numbers that killed them.
 ```
 docs/           five criterion documents + testing workflow + figure scripts
 src/Round 1/    ESP32 firmware — heading hold, corner detection, steering
-src/Round 2/    detector (NanoDet-Plus derivative) + classical HSV pipeline
+src/Round 2/    superseded detector (kept as evidence) + classical HSV pipeline
 models/         CAD / printable parts        — empty, no chassis exists yet
-schemes/        electromechanical schematics — pending
+schemes/        electromechanical schematics — signal wiring v0.1; power tree pending
 t-photos/       team photos                  — pending
 v-photos/       vehicle photos               — pending a built vehicle
 video/          performance video links      — pending a driving vehicle
@@ -66,7 +66,7 @@ it was overlooked. Each one says which.
 
 ## Quick start
 
-**Run the pillar detector on a camera or an image:**
+**Run the superseded neural detector (kept runnable as iteration evidence):**
 
 ```bash
 cd "src/Round 2/detector"
@@ -90,7 +90,7 @@ Libraries: Adafruit BNO055, Adafruit Unified Sensor, Adafruit BusIO, ESP32Servo.
 | 6 vehicle photos — every side, top and bottom | Yes | **Pending** — requires a built vehicle |
 | 2 team photos | Yes | **Pending** |
 | Performance video, >= 30 s autonomous driving, one per challenge | Yes | **Pending** — requires a driving vehicle |
-| Electromechanical schematic | Yes | **Pending** — requires a fixed component list |
+| Electromechanical schematic | Yes | **Partial** — signal wiring v0.1 in `schemes/`; power tree pending battery selection |
 | Control software | Yes | Present, `src/` |
 | CAD / printable parts | Yes | **Pending** — no chassis |
 
@@ -107,6 +107,7 @@ gap is visible rather than discovered late.
 | — | 2026-07-19 | HSV pillar pipeline v4.1, 0.43 ms/frame | Measured to fail in **both** directions, which voided the planned ROI-verifier fallback |
 | — | 2026-07-26 | Trained NanoDet-Plus detector; vision moved under `Round 2` | Validation split found contaminated — 25 duplicate stems, 27/29 shared capture buckets. All prior numbers withdrawn and re-measured on a clean 473/124 split. |
 | — | 2026-07-28 | Documentation restructured against the five scoring criteria | Root README had described the vehicle as camera-free after the detector had shipped |
+| — | 2026-08-05 | Drive integrated (N20 / TB6612, append-only); calibrated-Lab picker declared the Round 2 stack; NanoDet superseded after field testing; signal-wiring schematic v0.1 added | The val-split winner did not survive real footage — the single-session dataset limit, stated at training time, was observed in practice |
 
 Full reasoning for each entry: [`docs/4_systems_and_decisions.md`](docs/4_systems_and_decisions.md).
 
@@ -118,17 +119,19 @@ Stated here rather than left for a reader to find.
 
 - **Every detector number rests on 597 images from a single lighting session**,
   with no other robots, spectators, banners or reflective flooring present. The
-  figures are indicative, not a venue prediction.
+  figures are indicative, not a venue prediction — and field testing subsequently
+  observed exactly this transfer failure (see the version history).
 - **Both-pillar figures are synthetic composites.** No real image in the dataset
   contains a red and a green pillar at once.
 - **No Raspberry Pi 5 latency figure exists for this model.** It will not be
   quoted until `benchncnn` has run on the target board.
-- **The Obstacle Challenge is not implemented.** The strategy and state machine
-  are specified in [`docs/3_software.md`](docs/3_software.md); the code is not
-  written.
-- **The camera module physically fitted is not yet fixed**, so no field-of-view
-  or angular-resolution figure is quoted.
-- **There is no drivetrain.** The vehicle holds a heading; it does not drive.
+- **The Obstacle Challenge controller is not yet in this repository.** It is
+  implemented and bench-tested off-repo; it lands after integration fixes. Until
+  then [`docs/3_software.md`](docs/3_software.md) is the specification of record.
+- **The camera is a USB UVC webcam; the exact model is not yet identified**, so
+  no field-of-view or angular-resolution figure is quoted.
+- **There is no built vehicle.** Drive is integrated in firmware; until a chassis
+  exists the vehicle cannot drive.
 
 ---
 
