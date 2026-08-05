@@ -1,0 +1,138 @@
+# 5 — Reproducibility & Repository Quality
+
+Everything in this repository should be re-derivable from what is committed. Where
+that is not true, this document says so and says why.
+
+---
+
+## 1. Layout
+
+| Path | Contents |
+|---|---|
+| `docs/` | The five criterion documents, the testing workflow, and the figure-generation script |
+| `src/Round 1/` | ESP32 firmware — heading hold, corner detection, servo steering |
+| `src/Round 2/detector/` | Pillar detector: stripped NanoDet-Plus, training loop, evaluation, export, deploy ONNX |
+| `src/Round 2/vision/` | Classical HSV pipeline, retained as a diagnostic |
+| `models/` | CAD and printable parts — **empty; no chassis exists yet** |
+| `schemes/` | Electromechanical schematics — **pending** |
+| `t-photos/`, `v-photos/`, `video/` | Team photos, vehicle photos, performance video — **pending a built vehicle** |
+| `other/` | Datasheets and setup notes |
+
+Directories that are empty are empty because the artifact does not exist, not
+because it was forgotten. Each says which.
+
+---
+
+## 2. Environment
+
+| Component | Version / requirement |
+|---|---|
+| Python | 3.10-3.12 for the detector toolchain |
+| Firmware toolchain | Arduino IDE or PlatformIO, board = ESP32 |
+| Arduino libraries | Adafruit BNO055, Adafruit Unified Sensor, Adafruit BusIO, ESP32Servo (+ Adafruit MPU6050 for the legacy IMU test) |
+| Inference target | Raspberry Pi 5, CPU |
+
+---
+
+## 3. Reproducing the detector from zero
+
+```bash
+cd "src/Round 2/detector"
+git clone --depth 1 https://github.com/RangiLyu/nanodet.git nanodet_src
+python strip.py                                  # -> nanodet_lite/
+python tools/make_split.py --root <dataset>      # -> splits/  (T1)
+python tools/build_aug.py --splits splits        # negatives + both-pillar composites
+python -m nanodet_lite.train --epochs 120
+python eval_nanodet.py                           # T2
+python decide_nanodet.py --sweep                 # T3
+python export_nanodet.py                         # T4
+```
+
+Each step maps to a test in [`tests.md`](tests.md).
+
+### What is committed and what is not
+
+| Artifact | Committed | Why |
+|---|---|---|
+| `models/pillar_nanodet320.onnx` (4.52 MB) | **Yes** | The exact deployed weights must be version-controlled, not attached to a release that can be re-uploaded |
+| `models/tiny_pillar320_aug.onnx`, `tiny_pillar_best.pt` | **Yes** | The fallback model must be as reproducible as the primary |
+| 48 MB training checkpoint | **No** | Reproducible from `strip.py` + `nanodet_extra/train.py`. Belongs in a release, not in git history. |
+| Split manifests | **No** | They hold absolute local paths. Regenerate with `make_split.py` — which also re-runs the leakage check. |
+| Dataset (597 images) | **No** | Not ours to redistribute |
+
+`.gitignore` blanket-excludes `*.onnx` / `*.pt` with a **narrow negation** for
+`src/Round 2/detector/models/` only. This is deliberate: the default is to keep
+weights out, and the exception is explicit and scoped. When staging binaries,
+verify the staged byte total — `git diff --cached --stat` reports line counts and
+will not surface a silently-ignored binary.
+
+---
+
+## 4. Third-party code
+
+`src/Round 2/detector/nanodet_lite/` is a derivative of
+[NanoDet](https://github.com/RangiLyu/nanodet) by RangiLyu, Apache License 2.0,
+full text at `src/Round 2/detector/LICENSE-nanodet-Apache-2.0`. Upstream file
+paths are preserved so upstream changes remain applicable.
+
+Modifications: registry builders replaced with direct imports; the PyTorch
+Lightning trainer replaced with a plain training loop (upstream calls
+`training_epoch_end`, removed in Lightning 2.0); `data/collate.py` rewritten
+(upstream imports `torch._six`, removed in PyTorch 1.9); the COCO dataset and
+evaluator replaced with a manifest-driven YOLO-txt loader; an unused
+visualisation import removed from the head.
+
+The rest of the repository is MIT — see [`LICENSE`](../LICENSE).
+
+---
+
+## 5. Versioning and releases
+
+Semantic versioning, driven from the commit log rather than maintained by hand.
+
+| Mechanism | Tool |
+|---|---|
+| Commit convention | [Conventional Commits](https://www.conventionalcommits.org/) |
+| Version bump + tag + changelog | `release-please`, `.github/workflows/release.yml` |
+| Changelog | `CHANGELOG.md`, generated — do not edit by hand |
+
+Commit types in use: `feat`, `fix`, `docs`, `perf`, `refactor`, `test`, `chore`.
+A `feat:` bumps the minor version, a `fix:` the patch, and `!` or a
+`BREAKING CHANGE:` footer bumps the major.
+
+**Why bother.** A tagged release pins the firmware, the detector weights and the
+documentation that describes them to one another. Without it, "the numbers in the
+README" and "the model in `models/`" are only related by trust.
+
+### Commit message standard
+
+Median message length **>= 30 characters**, low-information messages
+(`update`, `fix`, `.`) below 5 % of the log. A commit message should say what
+changed and why it changed, because the commit log is the only record of the
+project that is timestamped and cannot be back-dated.
+
+---
+
+## 6. Figures
+
+**Currently hand-transcribed from test output, and that is a known defect.** Every
+table in `docs/` was copied from the output of `eval_nanodet.py` and
+`decide_nanodet.py --sweep` by hand, so a retrain can move a number in the data
+without moving it in the documentation.
+
+The mitigation is specified and not yet built: a generator under `docs/figures/`
+that re-derives every table and plot from the raw results, so the two cannot
+disagree silently. Risk R9 stays open until it exists.
+
+---
+
+## 7. Branches and remotes
+
+| Remote | URL | Role |
+|---|---|---|
+| `origin` | `COMEDE547/wro-2026-future-engineers` | Personal mirror |
+| `team` | `teddriveomo/wro-2026-future-engineers` | **The scored repository** |
+
+Day-to-day work is on `ethan-dev`. `main` is merged from it and **must be
+up to date before every checkpoint commit**, because the default branch is what a
+judge sees when they open the repository URL. Every push goes to **both** remotes.

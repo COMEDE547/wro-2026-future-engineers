@@ -1,98 +1,139 @@
-Engineering materials
-====
+# WRO Future Engineers 2026 — Engineering Materials
 
-This repository contains the engineering materials of an autonomous vehicle built for the **WRO Future Engineers** competition, season **2026**.
+Engineering documentation for an autonomous vehicle built for the **World Robot
+Olympiad Future Engineers** category, season **2026**.
 
-> Team: **[TEAM NAME — TBD]** &nbsp;·&nbsp; Members: **[TBD]** &nbsp;·&nbsp; Coach: **[TBD]** &nbsp;·&nbsp; Country: **India**
-
----
-
-## Content
-
-* `t-photos` — 2 team photos (one official, one informal).
-* `v-photos` — 6 photos of the vehicle (front, back, left, right, top, bottom).
-* `video` — `video.md` with a YouTube link of the car driving autonomously (≥30 s per challenge).
-* `schemes` — electromechanical schematic(s): every component and motor and how they connect.
-* `src` — control software for the vehicle.
-* `models` — 3D-print / CAD files for the vehicle parts.
-* `other` — datasheets, setup notes, anything else useful.
+> **Team:** [TEAM NAME — TBD] · **Members:** [TBD] · **Coach:** [TBD] · **Country:** India
 
 ---
 
-## The Robot
+## At a glance
 
-A self-driving car built around an **ESP32**, steered with a single servo (Ackermann geometry) and navigating by fusing an absolute-heading IMU with side-looking distance sensors. It is currently **camera-free** — wall and corner geometry, not vision, drives the steering. The control loop runs at ~50 Hz.
-
-*Name, dimensions and photos: TBD.*
-
----
-
-## Performance Videos
-
-*TBD — links will be added once Open and Obstacle Challenge runs are recorded (one video per challenge, ≥30 s of autonomous driving).*
-
----
-
-## Mobility Management
-
-- **Steering:** a single servo on `GPIO13` provides Ackermann steering — one steered axle, no differential drive, which is what WRO Future Engineers requires. Travel is clamped to **45°–135°** (90° = wheels straight), driven by a 500–2400 µs pulse at 50 Hz. The servo angle is set proportionally from heading error (`STEER_GAIN = 1.5` servo-degrees per degree of heading error).
-- **Drive (propulsion):** **TBD.** The firmware currently *holds and corrects a heading* but does not yet command a drive motor — throttle/drive control is the next milestone (`// Other robot tasks can go here (motor control, etc.)` in the loop).
-- **Chassis / wheels / dimensions:** TBD. Must fit within **300 × 200 × 300 mm** and weigh **≤ 1.5 kg**.
-
----
-
-## Power & Sense Management
-
-### Compute
-- **ESP32** (single board, master) runs the sensing + steering loop.
-
-### Sensors
-- **BNO055** 9-DOF IMU — absolute heading (Euler yaw, 0–360°), on mux channel 4 (`0x28`).
-- **3 × TF-Luna LiDAR** (left / center / right) for distance and corner detection. All three share address `0x10`, so they sit behind a **PCA9548A 8-channel I²C multiplexer** (`0x70`) on channels 0/1/2.
-- **3 × HC-SR04 ultrasonic** (Front / Left / Right) — an *alternative* sensing prototype in a separate sketch (interrupt-based, non-blocking). Not yet merged with the LiDAR steering loop; the team still has to commit to one sensing approach.
-
-### Wiring (from firmware)
-- **I²C bus:** `SDA = GPIO21`, `SCL = GPIO22`, 400 kHz.
-- **Servo:** signal `GPIO13`, V+ from external 5 V, common ground with the ESP32.
-- **PCA9548A mux (`0x70`):** ch0 → left TF-Luna, ch1 → center, ch2 → right, ch4 → BNO055.
-
-### Power
-- **TBD** — battery chemistry, capacity, and regulation not yet fixed. A power-budget table will be added once the drive motor and final component list are locked.
-
----
-
-## Obstacle Management
-
-### Open Challenge — *implemented*
-1. On startup the current heading is captured as the **target heading**.
-2. The car drives straight by proportionally counter-steering the servo to null the error between current and target heading (`steerToHeading()`), with the error wrapped to ±180°.
-3. **Corner detection:** when a side LiDAR reads **> 150 cm** (`OPENING_CM`) on a rising edge — i.e. a wall gives way to an opening — the target heading is stepped by **90°** (opening on the left → turn left; on the right → turn right). Across three laps the four corners are taken in sequence.
-
-### Obstacle Challenge — *not yet implemented*
-This needs colour detection of the red/green pillars (pass **red on the right, green on the left**) and a parallel-parking routine at the end. The robot has **no camera yet**, so this is the single biggest open item for the project.
-
----
-
-## Software
-
-All firmware is in [`src/`](src):
-
-| File | Role |
+| | |
 |---|---|
-| `IMU_STRAIGHTLINE_SERVO_DISTANCE.ino` | **Main driving firmware** — BNO055 heading-hold + 3× TF-Luna corner detection + servo steering. |
-| `triple_ultrasonic_sensor.ino` | Standalone 3× HC-SR04 ultrasonic test (interrupt-based, sequential triggering, no blocking `pulseIn`). |
-| `GetAngle_IMU.ino` | Early MPU6050 IMU read-out test — superseded by the BNO055 in the main sketch, kept for reference. |
-
-**Build / upload:** Arduino IDE or PlatformIO, board = **ESP32**.
-**Libraries:** Adafruit BNO055, Adafruit Unified Sensor, Adafruit BusIO, ESP32Servo (plus Adafruit MPU6050 for the legacy IMU test).
+| **Architecture** | Two processors. ESP32 runs sensing and steering at ~50 Hz; Raspberry Pi 5 runs pillar detection. A stalled detector cannot stall the steering loop. |
+| **Steering** | Single-servo Ackermann, 45-135 deg travel, proportional on heading error at 1.5 servo-deg/deg — saturating at 30 deg of error |
+| **Heading** | BNO055 absolute yaw. Corner detection is a *rising-edge* test on a side TF-Luna crossing 150 cm |
+| **Range sensing** | 3x TF-Luna behind a PCA9548A I2C multiplexer (all three share address `0x10`) |
+| **Pillar detector** | `nanodet_lite` — 1,167,660 params, 4.52 MB ONNX, 320x320, opset 11 |
+| **Detector accuracy** | macro F1 **0.898** · pass-side decision accuracy **0.941** · wrong side **5.1 %** · no call **0.8 %** · **0.083** false detections per empty frame |
+| **Validation** | 473 / 124 group-wise split, leakage-audited. 597 source images, **one lighting session**. |
+| **Open Challenge** | Implemented |
+| **Obstacle Challenge** | **Specified, not implemented** — state machine and strategy documented, code not written |
+| **Drivetrain** | **Not chosen.** The vehicle steers but does not yet drive. Critical path. |
 
 ---
 
-## Possible Improvements / TODO
+## Documentation index
 
-- **Add drive-motor control** — the biggest gap. The car steers but does not yet drive itself forward.
-- **Commit to one sensing stack** — merge or choose between the TF-Luna LiDAR and HC-SR04 ultrasonic approaches.
-- **Add a camera + vision** for the Obstacle Challenge (pillar colour logic + parallel parking).
-- **Mechanical:** chassis CAD in `models/`, a wiring diagram in `schemes/`, and a finalized power budget.
-- **Tuning:** `STEER_GAIN`, the `OPENING_CM` corner threshold, and the 90°-turn logic on the real track.
-- **Photos:** team and vehicle photos once the build is assembled.
+Organised against the five criteria WRO uses to score engineering documentation.
+
+| # | Criterion | Document | State |
+|---|---|---|---|
+| 1 | Mobility & Mechanical Design | [`docs/1_mobility.md`](docs/1_mobility.md) | Steering documented; **drivetrain unchosen** |
+| 2 | Power & Sensor Architecture | [`docs/2_power_and_sensors.md`](docs/2_power_and_sensors.md) | Sensors and camera geometry documented; **power budget unmeasured** |
+| 3 | Software Architecture & Obstacle Strategy | [`docs/3_software.md`](docs/3_software.md) | Open Challenge implemented; Obstacle Challenge specified |
+| 4 | Systems Thinking & Engineering Decisions | [`docs/4_systems_and_decisions.md`](docs/4_systems_and_decisions.md) | Decision log, rejected alternatives, risk register |
+| 5 | Reproducibility & Repository Quality | [`docs/5_reproducibility.md`](docs/5_reproducibility.md) | Reproduction steps, licensing, versioning policy |
+| — | Testing workflow | [`docs/tests.md`](docs/tests.md) | T1-T4 running; T5-T7 blocked on hardware |
+| — | Detector reference | [`src/Round 2/detector/README.md`](src/Round%202/detector/README.md) | Results, operating point, reproduction |
+| — | Firmware reference | [`src/README.md`](src/README.md) | Sketch-by-sketch |
+
+**Start with [4 — Systems Thinking](docs/4_systems_and_decisions.md)** if you only
+read one. It carries the decision log, including the alternatives that were built
+and rejected and the numbers that killed them.
+
+---
+
+## Repository layout
+
+```
+docs/           five criterion documents + testing workflow + figure scripts
+src/Round 1/    ESP32 firmware — heading hold, corner detection, steering
+src/Round 2/    detector (NanoDet-Plus derivative) + classical HSV pipeline
+models/         CAD / printable parts        — empty, no chassis exists yet
+schemes/        electromechanical schematics — pending
+t-photos/       team photos                  — pending
+v-photos/       vehicle photos               — pending a built vehicle
+video/          performance video links      — pending a driving vehicle
+other/          datasheets, setup notes
+```
+
+Empty directories are empty because the artifact does not exist yet, not because
+it was overlooked. Each one says which.
+
+---
+
+## Quick start
+
+**Run the pillar detector on a camera or an image:**
+
+```bash
+cd "src/Round 2/detector"
+python decide_nanodet.py --camera 0 --window 5     # prints "left" or "right"
+python decide_nanodet.py --image frame.jpg
+python decide_nanodet.py --sweep                   # re-derive the operating point
+```
+
+**Reproduce every number in this repository from scratch:**
+see [`docs/5_reproducibility.md`](docs/5_reproducibility.md#3-reproducing-the-detector-from-zero).
+
+**Build and flash the firmware:** Arduino IDE or PlatformIO, board = ESP32.
+Libraries: Adafruit BNO055, Adafruit Unified Sensor, Adafruit BusIO, ESP32Servo.
+
+---
+
+## Competition artifacts
+
+| Artifact | Required | Status |
+|---|---|---|
+| 6 vehicle photos — every side, top and bottom | Yes | **Pending** — requires a built vehicle |
+| 2 team photos | Yes | **Pending** |
+| Performance video, >= 30 s autonomous driving, one per challenge | Yes | **Pending** — requires a driving vehicle |
+| Electromechanical schematic | Yes | **Pending** — requires a fixed component list |
+| Control software | Yes | Present, `src/` |
+| CAD / printable parts | Yes | **Pending** — no chassis |
+
+These are gated on hardware that does not exist yet. They are tracked here so the
+gap is visible rather than discovered late.
+
+---
+
+## Version history
+
+| Version | Date | Change | Problems it created or exposed |
+|---|---|---|---|
+| — | 2026-06-26 | Initial repo; ESP32 firmware — IMU heading hold, TF-Luna corner detection, ultrasonic prototype | Corner detection needed a rising-edge test; a level test re-fires and spins the vehicle |
+| — | 2026-07-19 | HSV pillar pipeline v4.1, 0.43 ms/frame | Measured to fail in **both** directions, which voided the planned ROI-verifier fallback |
+| — | 2026-07-26 | Trained NanoDet-Plus detector; vision moved under `Round 2` | Validation split found contaminated — 25 duplicate stems, 27/29 shared capture buckets. All prior numbers withdrawn and re-measured on a clean 473/124 split. |
+| — | 2026-07-28 | Documentation restructured against the five scoring criteria | Root README had described the vehicle as camera-free after the detector had shipped |
+
+Full reasoning for each entry: [`docs/4_systems_and_decisions.md`](docs/4_systems_and_decisions.md).
+
+---
+
+## Known limits
+
+Stated here rather than left for a reader to find.
+
+- **Every detector number rests on 597 images from a single lighting session**,
+  with no other robots, spectators, banners or reflective flooring present. The
+  figures are indicative, not a venue prediction.
+- **Both-pillar figures are synthetic composites.** No real image in the dataset
+  contains a red and a green pillar at once.
+- **No Raspberry Pi 5 latency figure exists for this model.** It will not be
+  quoted until `benchncnn` has run on the target board.
+- **The Obstacle Challenge is not implemented.** The strategy and state machine
+  are specified in [`docs/3_software.md`](docs/3_software.md); the code is not
+  written.
+- **The camera module physically fitted is not yet fixed**, so no field-of-view
+  or angular-resolution figure is quoted.
+- **There is no drivetrain.** The vehicle holds a heading; it does not drive.
+
+---
+
+## Licence
+
+MIT — see [`LICENSE`](LICENSE). `src/Round 2/detector/nanodet_lite/` is a
+derivative of [NanoDet](https://github.com/RangiLyu/nanodet) and is Apache-2.0;
+its licence is at `src/Round 2/detector/LICENSE-nanodet-Apache-2.0`.

@@ -1,4 +1,8 @@
-﻿Video
-====
+# Performance video
 
-This directory must contain the video.md file with a URL to YouTube (public or accessible by link) showing the vehicle driving autonomously. The driving-demonstration part of the video must be at least 30 seconds long. One video per challenge.
+One video per challenge, showing the vehicle driving autonomously, with at least
+30 seconds of driving in the demonstration section. Links go in
+[`video.md`](video.md).
+
+**Status: pending.** The vehicle steers but has no drivetrain, so there is no
+autonomous run to record. See [`docs/1_mobility.md`](../docs/1_mobility.md).

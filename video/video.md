@@ -1,2 +1,6 @@
-﻿WRO 2026 Future Engineers - performance video for [Open Challenge / Obstacle Challenge]
-REPLACE THIS LINE WITH YOUR YOUTUBE LINK (>=30s of autonomous driving). One video per challenge.
+# Performance video links
+
+| Challenge | Link | Status |
+|---|---|---|
+| Open Challenge | — | Pending: firmware implemented, no drivetrain |
+| Obstacle Challenge | — | Pending: strategy specified, controller not written |
