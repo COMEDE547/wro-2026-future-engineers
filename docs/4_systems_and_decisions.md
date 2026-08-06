@@ -191,6 +191,34 @@ boxes — the single-disc form is the one that passed hardware testing. Next
 measurement: the current stack's accuracy on the same footage and ms/frame on
 the Pi 5, so this entry can carry the numbers its predecessors did.
 
+### D7 - Parking: implement, not descope (2026-08-06)
+
+The Obstacle state machine promised `PARK_SEARCH` / `PARALLEL_PARK` while the
+controller carried neither, leaving an implement-or-descope decision open.
+Decided: implement. The scoring table settles it - 1.8.2 pays 15 for a parallel
+park, **1.8.3 pays 7 even for a partial or non-parallel park**, and 1.8.1 adds
+7 for starting in the lot with a completed lap - so a crude, conservative
+attempt strictly dominates a descope that forfeits up to 22 points to save
+nothing but code. Constraints accepted with the decision: the runtime picker
+excludes magenta by design, so bay detection is a new capability (a third
+calibrated class, or TF-Luna geometry against the 20 mm limiters); and rule
+9.24.7 ends the round on touching a limiter, which caps how aggressive the
+manoeuvre may be.
+
+### D8 - Chassis: rebuild from LEGO hybrid to fully 3D-printed (2026-08-06)
+
+Driver: the first observed mechanical failure - under sustained drive the
+LEGO-mounted wheels shed from their axles within seconds (1 - Mobility,
+section 3). Retention options inside the LEGO system do not survive drive
+torque, so the fix chosen is frame-level: a printed chassis with proper hubs
+and axle retention. Secondary payoffs, stated up front so they cannot be
+claimed as afterthoughts: the rebuild produces the CAD/STL set this repo
+currently lacks, and it converts the failure into a documented, test-caused
+design iteration. Risk accepted: printing, assembly and re-tuning must fit
+inside the pre-competition window, and until the new frame passes the same
+sustained-drive test that killed the old one, the LEGO configuration remains
+the vehicle of record.
+
 ## 3. Risk register
 
 | ID | Risk | Likelihood | Impact | Mitigation | State |
