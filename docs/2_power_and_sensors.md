@@ -204,8 +204,15 @@ Power tree as wired (2026-08-06): pack -> buck converter -> ESP32 -> servo —
 the servo draws through the ESP32's 5 V chain, a named failure point in §5 —
 and the Pi 5 runs from the **same pack** through a regulator whose rating is
 unconfirmed against the Pi 5's 5 V / 5 A requirement. There is currently **no
-main power switch and no fuse**; both are open items, and the fuse rating
-follows from the stall currents measured below.
+main power switch, no start button, and no fuse** — and the first two are
+**mandatory, not optional**: §9.6 requires the vehicle placed in the start zone
+switched OFF, §9.10 allows exactly ONE switch to power it on, and §9.11
+requires it to then WAIT for exactly ONE start button, pressed on the judge's
+"Go" (§9.13–9.14). Current firmware auto-starts after boot, which violates the
+waiting-state requirement — a wait-for-start-button state is needed in both
+round programs, plus the physical switch and button. The fuse is good
+practice rather than a rule; its rating follows from the stall currents
+measured below.
 
 What will be measured, per rail (the drivetrain now exists — nothing blocks this):
 

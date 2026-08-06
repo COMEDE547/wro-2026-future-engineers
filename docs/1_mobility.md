@@ -149,6 +149,13 @@ stay on. The retention fix (pinned axles / printed hubs / clamped bosses) is
 open; when it lands with a before/after drive test, it becomes the drivetrain's
 first test-caused design change.
 
+**Impact path (answered 2026-08-06):** there is no sacrificial element and no
+bumper — a hard wheel strike feeds force directly into the steering servo
+(MG90, metal gears), and a head-on puts the chassis first against the wall.
+Nothing has broken so far and no crash-driven design change exists yet;
+whether a cheap fuse-part or bumper is worth its mass against the 1.5 kg
+budget is an open trade.
+
 ---
 
 ## 4. Open
