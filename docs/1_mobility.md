@@ -83,7 +83,7 @@ bottom of frame.*
 | Item | State | Blocks |
 |---|---|---|
 | Drive motor + driver | **Chosen — N20 via TB6612**, integrated in firmware; specs on record above | Flash test + direction check + duty tune still pending |
-| Chassis | **Built** — Lego Technic hybrid (plastic, printed PLA brackets for the sensors / servo / motor), Round-1 configuration; CAD/STLs not yet in `models/` | Mass measurement, camera mounting |
+| Chassis | **Built** — Lego Technic hybrid (plastic, printed PLA brackets for the sensors / servo / motor), Round-1 configuration; CAD/STLs not yet in `models/`; **rebuild to a fully 3D-printed chassis decided 2026-08-06** (driver: the wheel-retention failure, section 3) | Print + assemble the new frame; mass measurement, camera mounting |
 | Gearing | **Partially closed** — integrated ratio 1:50 (datasheet); the external spur-pinion -> differential-crown tooth counts remain uncounted | The uncounted stage is the last unknown in the speed / torque working point |
 | Wheels and tyres | **Measured** — rear 55.6 x 14 mm, front 41 x 21 mm | Traction limit; total mass still unmeasured |
 
@@ -145,9 +145,11 @@ afterwards.
 sustained drive the LEGO-mounted wheels shed from their axles within seconds.
 Wheel retention is therefore the first mechanical acceptance gate — ahead of
 the corner-exit test above, which cannot even be attempted until the wheels
-stay on. The retention fix (pinned axles / printed hubs / clamped bosses) is
-open; when it lands with a before/after drive test, it becomes the drivetrain's
-first test-caused design change.
+stay on. The retention fix is **decided (2026-08-06): a full chassis rebuild to
+a 3D-printed frame** with proper hubs and axle retention, replacing the LEGO
+axle interface that sheds under load; when the printed chassis lands with a
+before/after drive test, it becomes the drivetrain's first test-caused design
+change - and puts committable CAD in `models/`.
 
 **Impact path (answered 2026-08-06):** there is no sacrificial element and no
 bumper — a hard wheel strike feeds force directly into the steering servo

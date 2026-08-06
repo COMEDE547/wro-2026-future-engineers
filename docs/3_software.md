@@ -83,8 +83,21 @@ stateDiagram-v2
 
 ### Not yet specified
 
+**Parking is confirmed in-scope (decided 2026-08-06)** — the `PARK_SEARCH` /
+`PARALLEL_PARK` states above are a commitment, not an option. The scoring
+table settles it: rule 1.8.3 pays 7 points even for a partial or non-parallel
+park, so a crude, conservative attempt strictly dominates a descope (full
+rationale: [4 — Decisions](4_systems_and_decisions.md), D7). Two constraints
+shape the implementation: the runtime colour picker **excludes magenta by
+design** — its tight Lab tolerance is exactly what makes red-vs-magenta
+confusion structurally impossible — so bay detection needs either a third
+calibrated magenta class or TF-Luna geometry against the 20 mm limiters; and
+rule 9.24.7 ends the round on touching a limiter, which caps how aggressive
+the manoeuvre may be.
+
 Parking-bay entry geometry, and the speed profile through `PILLAR_ACT` — both
-blocked on the drivetrain (see [1 — Mobility](1_mobility.md), risk R10).
+remain unspecified; they now wait on the new chassis dimensions and the tuned
+drive speed (see [1 — Mobility](1_mobility.md)).
 
 ---
 
