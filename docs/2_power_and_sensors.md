@@ -21,7 +21,7 @@ steering loop — risk R7.
 | **BNO055** 9-DOF IMU | 1 | I2C `0x28`, mux ch4 | Absolute Euler yaw, 0-360 deg | MPU6050 — see below |
 | **TF-Luna** LiDAR | 3 | I2C `0x10`, mux ch0/1/2 | Distance, left / centre / right | HC-SR04 — see below |
 | **HC-SR04** ultrasonic | 3 | GPIO, interrupt-driven | Distance, front / left / right | *Retained as an alternative prototype, not the primary stack* |
-| **Camera** | 1 | USB UVC webcam | Pillar colour and bearing | model pending identification; 30 fps ceiling until a CSI module is fitted |
+| **Camera** | 1 | USB UVC webcam | Pillar colour and bearing | **Lenovo 300 FHD** (identified 2026-08-06); 30 fps ceiling until a CSI module is fitted |
 | **PCA9548A** mux | 1 | I2C `0x70` | 8-channel I2C fan-out | Mandatory — see address collision below |
 
 ### Why absolute-heading IMU over gyro integration
@@ -127,10 +127,11 @@ mat: the near pillar's base sits low in the frame, the far pillar's base sits
 just under the horizon. Base row is the range proxy.*
 
 **Resolved (2026-08-05): the fitted camera is a USB UVC webcam** (MJPEG,
-640 x 480 @ 30 fps; exact model pending identification). Consequence: the
+640 x 480 @ 30 fps). **Identified 2026-08-06: Lenovo 300 FHD.** Consequence: the
 high-frame-rate CSI capture path is gated on purchasing a CSI module, so 30 fps
 is the current ceiling. Field of view — and therefore the pixel budget per
-pillar at a given range — will be quoted once the model is identified.
+pillar at a given range — is pending a datasheet read verified against a
+checkerboard measurement on our unit.
 
 ---
 
@@ -181,8 +182,10 @@ calibrated status rather than on a fixed startup delay.
 | BNO055 loses magnetometer calibration mid-run | Calibration status register drops | Not yet implemented — planned; degrade to last-good target heading rather than to a bad one |
 | Detector process dies | No pass-side call arrives | **Handled by architecture** — steering continues on last heading target (R7) |
 | Detector reports low confidence | Confidence below 0.45 | **Handled** — hold course, which is recoverable |
+| Servo stall current drawn through the ESP32's 5 V chain (as wired: pack -> buck -> ESP32 -> servo) | ESP32 brownout / reset under steering load | Not yet implemented — planned dedicated servo rail; the §6 stall measurement sizes it |
+| Pi 5 undervoltage — its 5 V / 5 A requirement fed from the shared 3S pack through a regulator of unconfirmed rating | Pi throttle flag / lightning-bolt, SD corruption risk | Not yet implemented — verify the regulator rating before any sustained run |
 
-**Three of these five are unimplemented and are named as such.** Per-sensor health
+**Five of these seven are unimplemented and are named as such.** Per-sensor health
 status is a known gap, not an oversight.
 
 ---
@@ -191,13 +194,20 @@ status is a known gap, not an oversight.
 
 **Not yet measured, and deliberately not estimated.**
 
-A battery pack and a dual-rail buck module are now physically fitted, but the
-pack is unlabelled — chemistry, cell count and capacity are unconfirmed — and
-the N20's gear-ratio / voltage spec is still pending. Until those are read off
-the hardware, a budget would still be a guess presented as a table (risk R10).
-Measurement is now unblocked.
+**Pack read off the hardware (2026-08-06): 3S Li-Po, 11.1 V nominal, 2600 mAh,
+DC-jack output.** The N20's spec is on record in
+[1 — Mobility](1_mobility.md#drive--n20-via-tb6612-chosen-2026-08-01-integrated-2026-08-03)
+(datasheet-class: 0.75 A stall). The blocking unknowns are gone: every row
+below is measurable with a multimeter today.
 
-What will be measured, per rail, once the drivetrain exists:
+Power tree as wired (2026-08-06): pack -> buck converter -> ESP32 -> servo —
+the servo draws through the ESP32's 5 V chain, a named failure point in §5 —
+and the Pi 5 runs from the **same pack** through a regulator whose rating is
+unconfirmed against the Pi 5's 5 V / 5 A requirement. There is currently **no
+main power switch and no fuse**; both are open items, and the fuse rating
+follows from the stall currents measured below.
+
+What will be measured, per rail (the drivetrain now exists — nothing blocks this):
 
 | Rail | Load | Measurement |
 |---|---|---|
