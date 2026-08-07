@@ -37,54 +37,78 @@ and there is no landmark in the Open Challenge to correct against.
 
 ---
 
-## 2. Obstacle Challenge — implemented off-repo, pending landing
+## 2. Obstacle Challenge — implemented
 
-**Status: controller and Pi runtime are implemented and bench-tested off this
-repository.** They land here after three integration fixes: the wireless
-telemetry link is removed for rule 11.10 compliance, the BNO055 mux-channel map
-is verified against the physical harness, and driver standby handling is
-confirmed. Until they land, the state machine below is the specification of
-record — written before the build so the reasoning could be criticised first.
+**Status: landed.** Controller (`src/Round 2/main.cpp`) and Pi runtime
+(`src/Round 2/round2.py`) are in this repository. The three integration fixes
+that gated the landing are done: the wireless telemetry link is compiled out
+behind `ENABLE_BLUETOOTH 0` for rule 11.10 compliance, the BNO055 sits on
+verified multiplexer channel 4, and the TB6612 standby line is driven high
+unconditionally. The state machine below documents the controller as flashed.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> BOOT
-    BOOT --> HEADING_LOCK : IMU calibrated
-    HEADING_LOCK --> LAP_DRIVE : target heading captured
+    [*] --> WAIT_FOR_START
+    WAIT_FOR_START --> DRIVING_STRAIGHT : start button (50 ms debounce), heading captured at press
 
-    LAP_DRIVE --> CORNER_TURN : side LiDAR rising edge > 150 cm
-    CORNER_TURN --> LAP_DRIVE : heading error < 5 deg
-    CORNER_TURN --> LAP_COUNT : 4th corner of a lap
+    DRIVING_STRAIGHT --> TURNING : |L-R| > 100 cm for 5 consecutive loops, same direction
+    TURNING --> DRIVING_STRAIGHT : raw heading within 6 deg of target, 300 ms cooldown
 
-    LAP_DRIVE --> PILLAR_ACT : pass-side call, conf >= 0.45
-    PILLAR_ACT --> LAP_DRIVE : pillar bottom edge leaves frame
+    DRIVING_STRAIGHT --> OBSTACLE_AVOIDING : RED / GREEN (5-of-7 confirmed, inside height band, not yet pass-side safe)
+    OBSTACLE_AVOIDING --> DRIVING_STRAIGHT : CLEAR (10-frame debounce) or 1.5 s dead-man
+    OBSTACLE_AVOIDING --> REVERSING : REVERSE (pillar height > 80 px)
+    REVERSING --> OBSTACLE_AVOIDING : REVERSE stream silent 250 ms
 
-    LAP_COUNT --> LAP_DRIVE : laps < 3
-    LAP_COUNT --> PARK_SEARCH : laps == 3
-
-    PARK_SEARCH --> PARALLEL_PARK : magenta wall pair acquired
-    PARALLEL_PARK --> [*] : inside the parking bay
+    DRIVING_STRAIGHT --> ROBOT_STOPPED : 12 turns done and centre LiDAR < 165 cm
+    ROBOT_STOPPED --> [*]
 ```
+
+### The serial protocol, and why it is state-gated
+
+The Pi speaks five messages at 115200 baud: `RED`, `GREEN`, `CLEAR`, `REVERSE`,
+and `POS,cx,h` (Kalman-smoothed pillar centre-x and height, every tracked
+frame). The active colour is re-sent every 0.5 s as a keepalive; the controller
+auto-clears after 1.5 s of silence, so a dead link degrades to heading-hold
+instead of a runaway swerve.
+
+Commands are honoured only where they are safe. `RED`/`GREEN` are accepted
+while driving straight **or already avoiding** — a mid-avoid colour switch must
+flip the swerve, a failure we hit in testing. Everything is ignored during
+`TURNING` (a corner is never aborted halfway) and after `ROBOT_STOPPED` (a
+stray post-finish detection must never restart the vehicle, rule 9.24).
 
 ### Why this shape
 
-- **`LAP_DRIVE` is the default and every other state returns to it.** Any state
-  that cannot make progress falls back to heading-hold, which is the behaviour
-  that scores worst-case rather than crashes.
-- **`PILLAR_ACT` is a lateral heading offset, not a separate controller.** The
-  pass manoeuvre biases the same target heading the steering loop is already
-  tracking. One controller, no handover, no second tuning problem.
-- **No call is a state transition that does not happen.** A detector output below
-  threshold leaves the machine in `LAP_DRIVE`. Holding course is the safe default;
-  see the operating-point argument below.
-- **`PILLAR_ACT` exits on the pillar bottom edge leaving frame, not on a timer.**
-  A timer has to be tuned against a speed that is not yet chosen, because the
-  drivetrain does not exist. The geometric exit condition survives that.
+- **`DRIVING_STRAIGHT` is the default and every other state returns to it.**
+  Any state that cannot make progress falls back to PD heading-hold, which is
+  the behaviour that scores worst-case rather than crashes.
+- **Avoidance is a gradient, with the field-proven full lock as its boundary.**
+  The steer offset is proportional to how far the pillar sits from its
+  pass-side safe line in the frame (`offset = KV * error`, floored at a small
+  minimum while error remains, clamped to the +/-35 mechanical envelope). Large
+  error saturates to exactly the old binary full-lock swerve, which also
+  remains the fallback until the first `POS` of each pillar arrives. Field
+  evidence is never thrown away — it becomes the clamp.
+- **Detection is gated by voting, not by a confidence score.** The calibrated-Lab
+  picker has no confidence scalar; a colour must appear in 5 of the last 7
+  frames, inside the height band, and short of its pass-side line before a
+  command is sent. Holding course remains the safe default.
+- **Heading is captured at the start button, not at boot** — with the vehicle
+  placed on the mat, so the reference frame is the field. The BNO055 runs in
+  IMUPLUS mode (no magnetometer: drive-motor magnets cannot distort yaw), and
+  each turn target is stepped +/-90 deg **from the previous target**, so the
+  four leg headings stay exactly orthogonal in any reference frame and drift
+  cannot accumulate across twelve turns.
+- **Corner spikes must persist.** A pillar occluding one side LiDAR can fake the
+  left-right asymmetry for a frame or two; requiring 5 consecutive
+  same-direction loops rejects it. Turn completion is checked on the raw
+  heading — the smoothing filter's ~200 ms lag would overshoot every corner.
 
-### Not yet specified
+### Designed, not yet implemented
 
-**Parking is confirmed in-scope (decided 2026-08-06)** — the `PARK_SEARCH` /
-`PARALLEL_PARK` states above are a commitment, not an option. The scoring
+**Parking is confirmed in-scope (decided 2026-08-06)** — `PARK_SEARCH` /
+`PARALLEL_PARK` states are a commitment, not an option, but they are not in
+the flashed controller yet. The scoring
 table settles it: rule 1.8.3 pays 7 points even for a partial or non-parallel
 park, so a crude, conservative attempt strictly dominates a descope (full
 rationale: [4 — Decisions](4_systems_and_decisions.md), D7). Two constraints
@@ -95,9 +119,9 @@ calibrated magenta class or TF-Luna geometry against the 20 mm limiters; and
 rule 9.24.7 ends the round on touching a limiter, which caps how aggressive
 the manoeuvre may be.
 
-Parking-bay entry geometry, and the speed profile through `PILLAR_ACT` — both
-remain unspecified; they now wait on the new chassis dimensions and the tuned
-drive speed (see [1 — Mobility](1_mobility.md)).
+Parking-bay entry geometry, and the tuned value of the gradient gain `KV` —
+both wait on the new chassis dimensions and mat time (see
+[1 — Mobility](1_mobility.md)).
 
 ---
 
@@ -106,11 +130,11 @@ drive speed (see [1 — Mobility](1_mobility.md)).
 **Stack of record (2026-08-05): calibrated-Lab colour picker.** One (a,b) chroma
 disc per colour in CIELab, sampled interactively at the venue (median + MAD sets
 the tolerance, capped), with an L floor and a chroma gate; largest connected
-component with extent and aspect gates; 3-of-5 temporal vote; nearest pillar by
+component with extent and aspect gates; 5-of-7 temporal vote; nearest pillar by
 lowest box bottom edge. Per-venue calibration is a deliberate reversal of the
 fixed published-value-band philosophy — reasoning in
 [D6](4_systems_and_decisions.md#d6--neural-detector-superseded-in-the-field-calibrated-per-venue-picker-adopted).
-The runtime is implemented off-repo and lands with the Round 2 controller.
+The runtime is landed at `src/Round 2/round2.py` alongside the controller.
 
 ![Live detection on the Pi 5](img/detector-live-pi5-dual-pillar.jpg)
 ![Bench setup](img/detector-bench-setup.jpg)
