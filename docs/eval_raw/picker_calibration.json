@@ -1,0 +1,27 @@
+{
+  "fitted_on": "train.txt (473 real images, group-wise leakage-free split)",
+  "estimator": "round2.calibrate_color(), central 50% of each labelled box",
+  "boxes_sampled": {
+    "red": 200,
+    "green": 200
+  },
+  "calibration": {
+    "red": {
+      "a_center": 31.720043182373047,
+      "b_center": 24.81142234802246,
+      "tol": 15.0,
+      "l_min": 18.616174697875977
+    },
+    "green": {
+      "a_center": -17.185211181640625,
+      "b_center": 7.813239097595215,
+      "tol": 13.90565038124448,
+      "l_min": 16.217191696166992
+    }
+  },
+  "red_green_ab_separation": 51.8,
+  "red_magenta_ab_separation": 108.4,
+  "magenta_immune": true,
+  "generated_utc": "2026-08-08T05:46:09+00:00",
+  "round2_py_sha256": "a8a005625afa8f5f882956406715ed88153af097178402c112a334434a83cb2c"
+}

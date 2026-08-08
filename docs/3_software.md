@@ -156,10 +156,67 @@ selection evidence vs `tiny_pillar`:
 All figures on the leakage-free group-wise validation split (124 real images).
 They belong to the superseded neural stack and are retained as selection
 evidence; the *method* — the sweep, asymmetric error costs, failure
-decomposition — carries over to the current stack, whose own figures are the
-next measurement.
+decomposition — carries over to the current stack, whose own figures are in
+§4.1 below. Raw output for every table in this document is committed under
+`docs/eval_raw/`.
+
+### 4.1 The picker's own figures (current stack of record)
+
+Measured 2026-08-08 by `src/Round 2/eval_picker.py`, which imports the detection
+functions from `round2.py` **verbatim** — no reimplementation, so what is
+measured is the code that runs on the robot. Calibration is fitted with the
+shipped `calibrate_color()` on the **train** split only; the val images below
+were never used to fit it. Raw: `docs/eval_raw/picker_eval_summary.txt`.
+
+| | pooled calibration | condition-matched calibration |
+|---|---|---|
+| Detection rate (nearest pillar) | 68.5 % | 63.3 % stills · 100 % video |
+| Colour correct, given a detection | 76.5 % | **90.3 %** stills · 80.8 % video |
+| Pass-side calls committed | 33.1 % (41/124) | 33.7 % stills · 38.5 % video |
+| **Accuracy among committed calls** | 90.2 % (37/41) | **100 % (33/33)** stills · 90.0 % (9/10) video |
+| **Wrong-side rate** | 3.2 % | **0.0 %** stills · 3.8 % video |
+| Hold course (pillar under the 45 px gate) | 50.8 % | 50.0 % · 23.1 % |
+| False detections per empty frame | 0.35 (21/60) | — |
+| Latency, 240×240 | 4.6 ms median (desktop, **not a Pi figure**) | — |
+
+**The finding, and it changed race procedure.** Pooling calibration samples
+across two acquisition sessions drives red's tolerance to exactly 15.00 — the
+`max_tol` ceiling — because the two sessions disagree about what red *is*: their
+fitted red centres sit **24.0 apart** in Lab (a,b) (stills a=29.9 b=23.5; video
+a=48.5 b=38.7) while the tolerance is only 12–15. One circle cannot cover both,
+so the pooled fit lands between them and clips both. Calibrating within a single
+condition removes the wrong-side calls entirely on the stills family (0 wrong in
+33 committed calls) and lifts colour accuracy 76.5 % → 90.3 %.
+
+This is the measured form of the field failure we recorded on 2026-08-06
+("detector fails on slight colour shift"). It is not a defect to be tuned away —
+it is a property of thresholding raw colour, and the procedural answer is to
+calibrate **at the venue, in the venue's light**, and never reuse a calibration
+across lighting. That is what `--calib` JSON persistence exists for: calibrate
+once during check time, then run headless from the saved file.
+
+**Honest limits of this table.** The dataset was shot on a different camera than
+the robot's Lenovo 300 FHD, so these numbers validate the *method*, not venue
+performance. Still images cannot exercise the 5-of-7 temporal vote, so the
+false-alarm figure is per-frame and is therefore an upper bound on what the
+runtime does. The co-occurrence arm is the weakest result — 47.1 % among
+committed calls (8 right, 9 wrong out of 60 composited frames), i.e. a coin flip
+when two pillars are visible; those frames are composited rather than
+photographed, but the direction matches the known dominant failure and it is why
+the mid-avoid colour-switch fix was made a blocker rather than a nicety.
+
+**Two limits this measurement exposed, both now on the record.** The 4.6 ms is
+the hand-rolled NumPy Lab conversion in `round2.py`; `pillar_fast.py` does the
+same conversion through `cv2.cvtColor` in 0.43 ms. On Pi-class hardware that
+difference decides whether the loop clears 30 fps, and it is the first
+optimisation to make if the field run is frame-starved. Second, 50.8 % of val
+frames sit below the 45 px swerve gate — the gate is doing most of the work in
+this dataset, so the detection numbers above describe a harder regime than the
+close-range decisions that actually score.
 
 ### Confidence-threshold sweep
+
+Superseded stack. Raw: `docs/eval_raw/nanodet_sweep_raw.txt`.
 
 | thr | val acc | wrong side | no call | both-pillar wrong | false det / empty frame |
 |---|---|---|---|---|---|
