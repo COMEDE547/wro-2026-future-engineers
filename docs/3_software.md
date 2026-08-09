@@ -196,14 +196,19 @@ across lighting. That is what `--calib` JSON persistence exists for: calibrate
 once during check time, then run headless from the saved file.
 
 **Honest limits of this table.** The dataset was shot on a different camera than
-the robot's Lenovo 300 FHD, so these numbers validate the *method*, not venue
-performance. Still images cannot exercise the 5-of-7 temporal vote, so the
-false-alarm figure is per-frame and is therefore an upper bound on what the
-runtime does. The co-occurrence arm is the weakest result — 47.1 % among
-committed calls (8 right, 9 wrong out of 60 composited frames), i.e. a coin flip
-when two pillars are visible; those frames are composited rather than
-photographed, but the direction matches the known dominant failure and it is why
-the mid-avoid colour-switch fix was made a blocker rather than a nicety.
+the robot's, so these numbers validate the *method*, not venue performance.
+Still images cannot exercise the 5-of-7 temporal vote, so the false-alarm figure
+is per-frame and is therefore an upper bound on what the runtime does. The
+co-occurrence arm is the weakest result — 47.1 % among committed calls (8 right,
+9 wrong out of 60 composited frames), i.e. a coin flip when two pillars are
+visible; those frames are composited rather than photographed, but the direction
+matches the known dominant failure and it is why the mid-avoid colour-switch fix
+was made a blocker rather than a nicety. Set against that,
+[`other/bench-2026-08-05/bench-5.jpeg`](../other/bench-2026-08-05/bench-5.jpeg)
+shows the runtime resolving a real red and a real green pillar simultaneously and
+correctly on the deployed camera — one frame, so it settles nothing, but it is
+reason to treat the composited proxy as pessimistic and to re-measure against
+real two-pillar footage.
 
 **Two limits this measurement exposed, both now on the record.** The 4.6 ms is
 the hand-rolled NumPy Lab conversion in `round2.py`; `pillar_fast.py` does the
