@@ -6,20 +6,12 @@ import queue
 import subprocess
 import re
 import serial
-import argparse
-import json
-import os
 import numpy as np
 import cv2
 import av
 from collections import deque
 from PIL import Image
-# --- Minimum height (in pixels) before the robot starts to swerve ---
-MIN_SWERVE_HEIGHT = 45   # block must be at least this tall to trigger avoidance
-REVERSE_HEIGHT = 80  # if block is below this y, reverse instead of swerve
-            # --- Thresholds for determining which side the block is on ---
-LEFT_SIDE_MAX   = 90   # pixel x < this = left side
-RIGHT_SIDE_MIN  = 150   # pixel x > this = right side
+
 def rgb_to_lab(frame: np.ndarray) -> np.ndarray:
     """Convert RGB to LAB color space."""
     rgb = frame.astype(np.float32) / 255.0
@@ -100,12 +92,14 @@ def extract_bounding_box(mask: np.ndarray, min_area: int = 60, min_extent: float
 
 def process_frame(frame: np.ndarray, calib: dict, edge_margin: int = 6) -> tuple:
     """Process a frame and detect red/green blocks."""
+    # Ensure frame is valid
     if frame is None or frame.size == 0:
         return None, None
-
+    
     lab = rgb_to_lab(frame)
     red_mask, green_mask = get_masks(lab, calib)
 
+    # Ignore edge margin
     if edge_margin > 0:
         red_mask[:edge_margin, :] = False
         red_mask[-edge_margin:, :] = False
@@ -127,37 +121,62 @@ def upscale_for_display(frame_bgr: np.ndarray, scale: int = 3) -> np.ndarray:
     return cv2.resize(frame_bgr, (w * scale, h * scale), interpolation=cv2.INTER_NEAREST)
 
 
+# def draw_boxes(frame_bgr: np.ndarray, red_box: dict, green_box: dict, roi: tuple = None) -> np.ndarray:
+#     """Draw bounding boxes on frame."""
+#     out = frame_bgr.copy()
+#     if roi is not None:
+#         rx, ry, rw, rh = roi
+#         cv2.rectangle(out, (rx, ry), (rx + rw, ry + rh), (255, 255, 0), 1)
+#     if red_box:
+#         x, y, w, h = red_box['x'], red_box['y'], red_box['width'], red_box['height']
+#         cv2.rectangle(out, (x, y), (x + w, y + h), (0, 0, 255), 2)
+#         cv2.putText(out, f"RED {w}x{h}", (x, max(0, y - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+#     if green_box:
+#         x, y, w, h = green_box['x'], green_box['y'], green_box['width'], green_box['height']
+#         cv2.rectangle(out, (x, y), (x + w, y + h), (0, 255, 0), 2)
+#         cv2.putText(out, f"GREEN {w}x{h}", (x, max(0, y - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+#     return out
+
+
 def draw_boxes(frame_bgr: np.ndarray, red_box: dict, green_box: dict, roi: tuple = None) -> np.ndarray:
     out = frame_bgr.copy()
-
+    
     if roi is not None:
         rx, ry, rw, rh = roi
         cv2.rectangle(out, (rx, ry), (rx + rw, ry + rh), (255, 255, 0), 1)
-
+    
     if red_box:
         x, y, w, h = red_box['x'], red_box['y'], red_box['width'], red_box['height']
         cx, cy = red_box['center_x'], red_box['center_y']
-
+        
+        # Bounding box
         cv2.rectangle(out, (x, y), (x + w, y + h), (0, 0, 255), 2)
+        
+        # Center dot
         cv2.circle(out, (cx, cy), 3, (0, 0, 255), -1)
-
+        
+        # Label with color, size, and position
         label1 = f"RED {w}x{h}px"
         label2 = f"pos=({x},{y}) center=({cx},{cy})"
         cv2.putText(out, label1, (x, max(0, y - 22)), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
         cv2.putText(out, label2, (x, max(0, y - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 0, 255), 1)
-
+    
     if green_box:
         x, y, w, h = green_box['x'], green_box['y'], green_box['width'], green_box['height']
         cx, cy = green_box['center_x'], green_box['center_y']
-
+        
+        # Bounding box
         cv2.rectangle(out, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        
+        # Center dot
         cv2.circle(out, (cx, cy), 3, (0, 255, 0), -1)
-
+        
+        # Label with color, size, and position
         label1 = f"GREEN {w}x{h}px"
         label2 = f"pos=({x},{y}) center=({cx},{cy})"
         cv2.putText(out, label1, (x, max(0, y - 22)), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 0), 1)
         cv2.putText(out, label2, (x, max(0, y - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1)
-
+    
     return out
 
 
@@ -191,12 +210,12 @@ def calibrate_color(lab_patches: list, margin: float = 5.0,
     }
 
 
-def run_calibration_session(get_frame, roi: tuple, window_name: str, initial: dict = None) -> dict:
-    """Interactive calibration session. `initial` (e.g. a saved calib.json) is the starting
-    calibration: press Q to keep it, or resample to replace it."""
+def run_calibration_session(get_frame, roi: tuple, window_name: str) -> dict:
+    """Interactive calibration session."""
+    from collections import deque
     MAX_SAMPLES = 6
     samples = {'red': deque(maxlen=MAX_SAMPLES), 'green': deque(maxlen=MAX_SAMPLES)}
-    calib = dict(initial) if initial else {}
+    calib = {}
 
     print("\n=== CALIBRATION SESSION ===")
     print("Tip: let the camera's auto-exposure settle for a second before sampling.")
@@ -208,7 +227,7 @@ def run_calibration_session(get_frame, roi: tuple, window_name: str, initial: di
     last_color = None
     last_sample_time = 0.0
     debounce_s = 0.6
-
+    
     while True:
         frame = get_frame()
         if frame is None:
@@ -229,7 +248,7 @@ def run_calibration_session(get_frame, roi: tuple, window_name: str, initial: di
 
         key = cv2.waitKey(50) & 0xFF
         now = time.monotonic()
-
+        
         if key == ord('1') and (now - last_sample_time) > debounce_s:
             samples['red'].append(sample_roi_lab(frame, roi))
             calib['red'] = calibrate_color(list(samples['red']))
@@ -265,13 +284,14 @@ def run_calibration_session(get_frame, roi: tuple, window_name: str, initial: di
 def open_camera(camera_id: int):
     """Open camera using PyAV with improved settings."""
     try:
+        # Try different formats
         container = av.open(
             f'/dev/video{camera_id}',
             format='v4l2',
             options={
                 'video_size': '640x480',
                 'framerate': '30',
-                'input_format': 'mjpeg'
+                'input_format': 'mjpeg'  # Try MJPEG first
             }
         )
         stream = container.streams.video[0]
@@ -279,6 +299,7 @@ def open_camera(camera_id: int):
         return container, stream
     except Exception as e:
         try:
+            # Fallback to YUYV
             container = av.open(
                 f'/dev/video{camera_id}',
                 format='v4l2',
@@ -317,13 +338,16 @@ def start_capture_thread(container, stream, frame_size=240):
                     if stop_flag.is_set():
                         break
                     try:
+                        # Convert to RGB
                         if frame.format.name != 'rgb24':
                             frame = frame.reformat(format='rgb24')
                         img = frame.to_ndarray(format='rgb24')
-
+                        
+                        # Validate frame
                         if img is not None and img.size > 0:
                             img = resize_frame(img, frame_size, frame_size)
-                            # img = cv2.rotate(img, cv2.ROTATE_180)
+                            img = cv2.rotate(img, cv2.ROTATE_180)
+                            # img = cv2.flip(img,1)
                             if img is not None:
                                 if frame_q.full():
                                     try:
@@ -341,15 +365,9 @@ def start_capture_thread(container, stream, frame_size=240):
     t.start()
     return t, frame_q, stop_flag
 
-
-def set_manual_camera_controls(camera_id: int, exposure_value: int = 500,
+def set_manual_camera_controls(camera_id: int, exposure_value: int = 300,
                                 wb_temperature: int = 4500):
-    """Lock auto_exposure/white_balance so LAB calibration stays stable across runs.
-
-    exposure 500 = 50 ms = an exact multiple of both the 10 ms (50 Hz) and 8.33 ms (60 Hz)
-    mains half-periods, so it is flicker-safe on either grid. Trade-off: 50 ms exposure caps
-    real fps at ~20 even though we request 30 — accepted; do not "fix" by lowering exposure.
-    """
+    """Lock auto_exposure/white_balance so LAB calibration stays stable across runs."""
     dev = f'/dev/video{camera_id}'
     cmds = [
         ['v4l2-ctl', '-d', dev, '-c', 'auto_exposure=1'],
@@ -363,100 +381,34 @@ def set_manual_camera_controls(camera_id: int, exposure_value: int = 500,
         except subprocess.CalledProcessError as e:
             print(f"Warning: could not run {' '.join(cmd)} ({e})")
     print(f"Camera controls locked: exposure={exposure_value}, wb_temp={wb_temperature}")
-    # Read back what the driver actually accepted — a silent clamp here would invalidate calibration.
-    try:
-        out = subprocess.run(['v4l2-ctl', '-d', dev, '-C', 'exposure_time_absolute'],
-                             capture_output=True, text=True, timeout=5)
-        print(f"Driver reports: {out.stdout.strip()}")
-    except Exception as e:
-        print(f"Warning: could not read back exposure ({e})")
-
-
-def save_calib(calib: dict, path: str):
-    """Persist calibration so race-day headless runs can load it (calibrate during check time)."""
-    try:
-        with open(path, 'w') as f:
-            json.dump(calib, f, indent=2)
-        print(f"Calibration saved to {path}")
-    except Exception as e:
-        print(f"Warning: could not save calibration to {path} ({e})")
-
-
-def load_calib(path: str):
-    """Load a previously saved calibration; returns {} when absent or unreadable."""
-    if not os.path.exists(path):
-        return {}
-    try:
-        with open(path) as f:
-            calib = json.load(f)
-        print(f"Loaded calibration from {path}: {list(calib.keys())}")
-        return calib
-    except Exception as e:
-        print(f"Warning: could not load calibration from {path} ({e})")
-        return {}
-
-
-def create_kalman_filter():
-    """Constant-velocity Kalman filter: state=[x,y,vx,vy], measurement=[x,y]."""
-    kf = cv2.KalmanFilter(4, 2, 0, type = cv2.CV_64F)
-    kf.measurementMatrix = np.array([[1, 0, 0, 0],
-                                       [0, 1, 0, 0]], np.float64)
-    kf.transitionMatrix = np.array([[1, 0, 1, 0],
-                                      [0, 1, 0, 1],
-                                      [0, 0, 1, 0],
-                                      [0, 0, 0, 1]], np.float64)
-    kf.processNoiseCov = np.eye(4, dtype=np.float64) * 0.03
-    kf.measurementNoiseCov = np.eye(2, dtype=np.float64) * 1.0
-    return kf
-
-
-
-
 
 def kalman_update(kf, box, initialized: bool):
+    """Predict + (optional) correct. Returns (smoothed_dict_or_None, new_initialized_flag).
+    smoothed_dict has center_x, center_y, vx, vy. If box is None, filter coasts on motion model."""
     if box is not None:
-        measurement = np.array([[np.float64(box['center_x'])],
-                                [np.float64(box['center_y'])]])
+        measurement = np.array([[np.float32(box['center_x'])],
+                                 [np.float32(box['center_y'])]])
         if not initialized:
-            kf.statePre = np.array([[box['center_x']], [box['center_y']], [0], [0]], np.float64)
-            kf.statePost = np.array([[box['center_x']], [box['center_y']], [0], [0]], np.float64)
+            kf.statePre = np.array([box['center_x'], box['center_y'], 0, 0], np.float32)
+            kf.statePost = np.array([box['center_x'], box['center_y'], 0, 0], np.float32)
             initialized = True
-        else:
-            kf.predict()
-
         kf.correct(measurement)
 
-        smoothed = {
-            'center_x': int(kf.statePost[0, 0]),
-            'center_y': int(kf.statePost[1, 0]),
-            'vx': float(kf.statePost[2, 0]),
-            'vy': float(kf.statePost[3, 0])
-        }
-        return smoothed, initialized
-    else:
+    if not initialized:
+        return None, initialized
 
-        if not initialized:
-            return None, initialized
-        predicted = kf.predict()
-        smoothed = {
-            'center_x': int(predicted[0, 0]),
-            'center_y': int(predicted[1, 0]),
-            'vx': float(predicted[2, 0]),
-            'vy': float(predicted[3, 0])
-        }
-        return smoothed, initialized
+    prediction = kf.predict()
+    smoothed = {
+        'center_x': int(prediction[0]),
+        'center_y': int(prediction[1]),
+        'vx': float(prediction[2]),
+        'vy': float(prediction[3]),
+    }
+    return smoothed, initialized
 
-def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
-         calib_path: str = "calib.json"):
-    """Main function with improved camera handling.
-
-    headless=True is the race-day mode: no cv2 UI at all (the field has no monitor and
-    rule 9.9 forbids calibrating at round start) — calibration comes from calib_path,
-    written earlier by a GUI session during check time."""
-
-    # --- Lock exposure/white balance before opening the stream ---
-    set_manual_camera_controls(camera_id, exposure_value=500, wb_temperature=4500)
-
+def main(camera_id: int = 0, frame_size: int = 240):
+    """Main function with improved camera handling."""
+    set_manual_camera_controls(camera_id, exposure_value=300, wb_temperature=4500)
     # --- Serial connection to ESP32 ---
     try:
         ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
@@ -489,7 +441,7 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
             test_frames += 1
             print(f"Got test frame {test_frames}, shape: {frame.shape}")
         time.sleep(0.1)
-
+    
     if test_frames == 0:
         print("No frames received from camera!")
         stop_flag.set()
@@ -499,48 +451,31 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
 
     # --- Main loop ---
     window_name = "WRO Block Detector"
+    cv2.namedWindow(window_name)
 
+    # ROI in the center
     roi_w, roi_h = frame_size // 5, frame_size // 5
     roi = ((frame_size - roi_w) // 2, (frame_size - roi_h) // 2, roi_w, roi_h)
 
-    saved = load_calib(calib_path)
+    # --- Calibration ---
+    calib = run_calibration_session(get_frame, roi, window_name)
 
-    if headless:
-        if 'red' not in saved or 'green' not in saved:
-            print(f"ERROR: headless mode needs a calibration file with both colors at {calib_path}.")
-            print("Run once WITHOUT --headless during check time to calibrate and save it.")
-            stop_flag.set()
-            t.join(timeout=2.0)
-            container.close()
-            if ser is not None:
-                ser.close()
-            return
-        calib = saved
-        print("=== LIVE DETECTION (headless) ===\n")
-    else:
-        cv2.namedWindow(window_name)
-        calib = run_calibration_session(get_frame, roi, window_name, initial=saved)
-        if 'red' in calib and 'green' in calib:
-            save_calib(calib, calib_path)
-        print("=== LIVE DETECTION ===")
-        print("Press C to recalibrate, Q to quit.\n")
+    print("=== LIVE DETECTION ===")
+    print("Press C to recalibrate, Q to quit.\n")
 
-    history_len = 7
-    required = 5
+    history_len = 5
+    required = 3
     red_hist = deque(maxlen=history_len)
     green_hist = deque(maxlen=history_len)
 
-    # --- Single Kalman filter for whichever color is currently tracked ---
-    kf = create_kalman_filter()
-    kf_initialized = False
-    kf_color = None  # which color the filter is currently locked onto
+    # --- Kalman filters for steering ---
+    red_kf = create_kalman_filter()
+    green_kf = create_kalman_filter()
+    red_kf_initialized = False
+    green_kf_initialized = False
 
     last_sent = None
     frame_count = 0
-    clear_counter = 0      
-    CLEAR_HISTORY = 10
-    last_reverse_send = 0.0    # rate-limit REVERSE to 10 Hz instead of every frame
-    last_state_keepalive = 0.0 # re-send RED/GREEN every 0.5 s (feeds the ESP32 1.5 s dead-man)
 
     try:
         while True:
@@ -555,138 +490,48 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
             red_confirmed = sum(b is not None for b in red_hist) >= required
             green_confirmed = sum(b is not None for b in green_hist) >= required
 
-
+            # --- Kalman smoothing (only correct with confirmed detections) ---
+            red_smoothed, red_kf_initialized = kalman_update(
+            red_kf, red_box if red_confirmed else None, red_kf_initialized)
+            green_smoothed, green_kf_initialized = kalman_update(
+            green_kf, green_box if green_confirmed else None, green_kf_initialized)
+            
+            # Determine current detection
             current_detection = None
-            active_box = None
-
-            # Determine which block to act on, if any
-            if red_confirmed and green_confirmed:
-                if red_box is not None and green_box is not None:
-                # Both visible – pick the closer one (taller box)
-                    if red_box['height'] >= green_box['height']:
-                        primary_box = red_box
-                        primary_color = 'red'
-                    else:
-                        primary_box = green_box
-                        primary_color = 'green'
-                elif red_box is not None:
-                    primary_box = red_box
-                    primary_color = 'red'
-                elif green_box is not None:
-                    primary_box = green_box
-                    primary_color = 'green'
-                else:
-                    primary_box = None
-                    primary_color = None
-            elif red_confirmed:
-                primary_box = red_box
-                primary_color = 'red'
-            elif green_confirmed:
-                primary_box = green_box
-                primary_color = 'green'
-            else:
-                primary_box = None
-                primary_color = None
-
-            too_close = False
-            if primary_box is not None:
-                block_height = primary_box['height']
-                
-                # --- Too far away? ---
-                if block_height < MIN_SWERVE_HEIGHT:
-                    current_detection = None
-                    active_box = None
-                
-                # --- Dangerously close? ---
-                elif block_height > REVERSE_HEIGHT:
-                    too_close = True
-                    now_t = time.monotonic()
-                    if ser is not None and (now_t - last_reverse_send) >= 0.1:
-                        ser.write(b'REVERSE\n')
-                        last_reverse_send = now_t
-                        print(">>> Sent REVERSE (too close)")
-                    current_detection = None   # skip normal command this frame
-                else:
-                    if primary_color == 'red':
-                        if primary_box['center_x'] <= LEFT_SIDE_MAX:
-                            # Already on the left – safe, no swerve needed
-                            current_detection = None
-                        else:
-                            current_detection = 'red'
-                            active_box = primary_box
-                    else:  # green
-                        if primary_box['center_x'] >= RIGHT_SIDE_MIN:
-                            # Already on the right – safe
-                            current_detection = None
-                        else:
-                            current_detection = 'green'
-                            active_box = primary_box
-
-            # --- Kalman smoothing for steering (single filter, reset on target change) ---
-            if current_detection != kf_color:
-                kf = create_kalman_filter()
-                kf_initialized = False
-                kf_color = current_detection
-
-            smoothed = None
-            if current_detection is not None:
-                smoothed, kf_initialized = kalman_update(kf, active_box, kf_initialized)
-            if current_detection is None:
-                if not too_close:
-                    clear_counter += 1
-                # too close = the opposite of clear: freeze the counter so a debounced
-                # CLEAR can never fire while we are still on top of the pillar
-            else:
-                clear_counter = 0
+            if green_confirmed and not red_confirmed:
+                current_detection = 'green'
+            elif red_confirmed and not green_confirmed:
+                current_detection = 'red'
 
             # Send command only on change
             if current_detection != last_sent and ser is not None:
-                if current_detection is None and clear_counter < CLEAR_HISTORY:
-                    pass
+                if current_detection == 'red':
+                    ser.write(b'RED\n')
+                    print(">>> Sent RED")
+                elif current_detection == 'green':
+                    ser.write(b'GREEN\n')
+                    print(">>> Sent GREEN")
                 else:
-                    if current_detection == 'red':
-                        ser.write(b'RED\n')
-                        print(">>> Sent RED")
-                    elif current_detection == 'green':
-                        ser.write(b'GREEN\n')
-                        print(">>> Sent GREEN")
-                    else:
-                        ser.write(b'CLEAR\n')
-                        print(">>> Sent CLEAR")
-                    last_sent = current_detection
-                    last_state_keepalive = time.monotonic()
+                    ser.write(b'CLEAR\n')
+                    print(">>> Sent CLEAR")
+                last_sent = current_detection
 
-            # State keepalive: re-send the active color every 0.5 s so the ESP32's 1.5 s
-            # dead-man never fires during a long, otherwise-silent pass.
-            if current_detection is not None and current_detection == last_sent and ser is not None:
-                now_t = time.monotonic()
-                if now_t - last_state_keepalive >= 0.5:
-                    ser.write(b'RED\n' if current_detection == 'red' else b'GREEN\n')
-                    last_state_keepalive = now_t
-
-            # POS stream: while tracking, send the (Kalman-smoothed) block position every
-            # frame — this drives the ESP32's gradient steering and doubles as a keepalive.
-            if current_detection is not None and active_box is not None and ser is not None:
-                cx = smoothed['center_x'] if smoothed is not None else active_box['center_x']
-                ser.write(f"POS,{int(cx)},{int(active_box['height'])}\n".encode())
-
-            # Display (GUI mode only — headless does zero cv2 UI work)
+            # Display
             display_red = red_box if red_confirmed else None
             display_green = green_box if green_confirmed else None
-            if not headless:
-                bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                display = draw_boxes(bgr, display_red, display_green)
+            bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            display = draw_boxes(bgr, display_red, display_green)
+            display = upscale_for_display(display, scale=3)
+            cv2.imshow(window_name, display)
 
-                cv2.line(display, (LEFT_SIDE_MAX, 0), (LEFT_SIDE_MAX, frame_size-1), (0, 165, 255), 1)
-                cv2.putText(display, "RED SAFE <", (2, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 165, 255), 1)
-
-                cv2.line(display, (RIGHT_SIDE_MIN, 0), (RIGHT_SIDE_MIN, frame_size-1), (0,255,0), 1)
-                cv2.putText(display, "GREEN SAFE >", (RIGHT_SIDE_MIN+2, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1)
-
-                cv2.putText(display, "DANGER", (LEFT_SIDE_MAX+5, frame_size-10), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
-
-                cv2.imshow(window_name, upscale_for_display(display, scale=3))
             frame_count += 1
+            # red_str = (f"R[x={display_red['x']},y={display_red['y']},"
+            #             f"w={display_red['width']},h={display_red['height']}]"
+            #             if display_red else "R:None")
+            # green_str = (f"G[x={display_green['x']},y={display_green['y']},"
+            #                 f"w={display_green['width']},h={display_green['height']}]"
+            #                 if display_green else "G:None")
+            # print(f"Frame {frame_count} | {red_str} | {green_str}", end='\r', flush =True)
             red_str = (f"RED[x={display_red['x']}px, y={display_red['y']}px, "
                         f"w={display_red['width']}px, h={display_red['height']}px, "
                         f"center=({display_red['center_x']}px, {display_red['center_y']}px)]"
@@ -697,27 +542,17 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
                         f"center=({display_green['center_x']}px, {display_green['center_y']}px)]"
                         if display_green else "GREEN:None")
 
-            smoothed_str = (f"SMOOTHED[{kf_color},x={smoothed['center_x']},y={smoothed['center_y']},"
-                             f"vx={smoothed['vx']:.1f},vy={smoothed['vy']:.1f}]"
-                             if smoothed is not None else "SMOOTHED:None")
+            print(f"Frame {frame_count} | {red_str} | {green_str}", flush=True)
 
-            print(f"Frame {frame_count} | {red_str} | {green_str} | {smoothed_str}", flush=True)
-
-            if not headless:
-                key = cv2.waitKey(1) & 0xFF
-                if key == ord('q'):
-                    break
-                elif key == ord('c'):
-                    calib = run_calibration_session(get_frame, roi, window_name, initial=calib)
-                    if 'red' in calib and 'green' in calib:
-                        save_calib(calib, calib_path)
-                    red_hist.clear()
-                    green_hist.clear()
-                    last_sent = None
-                    kf = create_kalman_filter()
-                    kf_initialized = False
-                    kf_color = None
-                    print("=== LIVE DETECTION ===")
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
+            elif key == ord('c'):
+                calib = run_calibration_session(get_frame, roi, window_name)
+                red_hist.clear()
+                green_hist.clear()
+                last_sent = None
+                print("=== LIVE DETECTION ===")
 
     except KeyboardInterrupt:
         pass
@@ -727,17 +562,10 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
         container.close()
         if ser is not None:
             ser.close()
-        if not headless:
-            cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
         print("\nFinal calibration used:")
         for color, c in calib.items():
             print(f"  {color}: {c}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="WRO Round 2 block detector")
-    parser.add_argument("--headless", action="store_true",
-                        help="race-day mode: no cv2 UI, calibration loaded from --calib")
-    parser.add_argument("--calib", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "calib.json"),
-                        help="path to the calibration JSON (default: calib.json next to this script)")
-    args = parser.parse_args()
-    main(camera_id=0, frame_size=240, headless=args.headless, calib_path=args.calib)
+    main(camera_id=0, frame_size=240)

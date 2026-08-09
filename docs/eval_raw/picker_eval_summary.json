@@ -1,0 +1,246 @@
+{
+  "generated_utc": "2026-08-08T05:46:09+00:00",
+  "harness": "src/Round 2/eval_picker.py",
+  "system_under_test": "src/Round 2/round2.py (functions imported verbatim)",
+  "round2_py_sha256": "a8a005625afa8f5f882956406715ed88153af097178402c112a334434a83cb2c",
+  "frame_size": 240,
+  "gates": {
+    "MIN_SWERVE_HEIGHT": 45,
+    "REVERSE_HEIGHT": 80
+  },
+  "calibration": {
+    "red": {
+      "a_center": 31.720043182373047,
+      "b_center": 24.81142234802246,
+      "tol": 15.0,
+      "l_min": 18.616174697875977
+    },
+    "green": {
+      "a_center": -17.185211181640625,
+      "b_center": 7.813239097595215,
+      "tol": 13.90565038124448,
+      "l_min": 16.217191696166992
+    }
+  },
+  "red_green_ab_separation": 51.8,
+  "red_magenta_ab_separation": 108.4,
+  "latency_ms_per_frame_desktop": {
+    "median": 4.589,
+    "p95": 4.734,
+    "note": "Ryzen 7700X desktop, single thread. NOT a Raspberry Pi 5 number."
+  },
+  "splits": [
+    {
+      "split": "val_real",
+      "frames": 124,
+      "frames_with_pillar": 124,
+      "empty_frames": 0,
+      "detect_rate_pct": 68.5,
+      "miss_rate_pct": 31.5,
+      "colour_accuracy_given_detection_pct": 76.5,
+      "centre_inside_gt_box_pct": 65.9,
+      "pass_side_correct_pct": 29.8,
+      "pass_side_WRONG_pct": 3.2,
+      "committed_calls_pct": 33.1,
+      "accuracy_among_committed_calls_pct": 90.2,
+      "no_call_hold_course_pct": 50.8,
+      "reverse_called_pct": 16.1,
+      "false_alarms_per_empty_frame": null,
+      "_counts": {
+        "frames": 124,
+        "with_gt": 124,
+        "detected": 85,
+        "colour_correct": 65,
+        "colour_wrong": 20,
+        "missed": 39,
+        "side_correct": 37,
+        "side_wrong": 4,
+        "side_nocall": 63,
+        "side_reverse": 20,
+        "empty_frames": 0,
+        "empty_false_alarms": 0,
+        "centre_in_gt": 56
+      }
+    },
+    {
+      "split": "val_cooccurrence",
+      "frames": 60,
+      "frames_with_pillar": 60,
+      "empty_frames": 0,
+      "detect_rate_pct": 81.7,
+      "miss_rate_pct": 18.3,
+      "colour_accuracy_given_detection_pct": 63.3,
+      "centre_inside_gt_box_pct": 55.1,
+      "pass_side_correct_pct": 13.3,
+      "pass_side_WRONG_pct": 15.0,
+      "committed_calls_pct": 28.3,
+      "accuracy_among_committed_calls_pct": 47.1,
+      "no_call_hold_course_pct": 41.7,
+      "reverse_called_pct": 30.0,
+      "false_alarms_per_empty_frame": null,
+      "_counts": {
+        "frames": 60,
+        "with_gt": 60,
+        "detected": 49,
+        "colour_correct": 31,
+        "colour_wrong": 18,
+        "missed": 11,
+        "side_correct": 8,
+        "side_wrong": 9,
+        "side_nocall": 25,
+        "side_reverse": 18,
+        "empty_frames": 0,
+        "empty_false_alarms": 0,
+        "centre_in_gt": 27
+      }
+    },
+    {
+      "split": "val_negatives",
+      "frames": 60,
+      "frames_with_pillar": 0,
+      "empty_frames": 60,
+      "detect_rate_pct": null,
+      "miss_rate_pct": null,
+      "colour_accuracy_given_detection_pct": null,
+      "centre_inside_gt_box_pct": null,
+      "pass_side_correct_pct": null,
+      "pass_side_WRONG_pct": null,
+      "committed_calls_pct": null,
+      "accuracy_among_committed_calls_pct": null,
+      "no_call_hold_course_pct": null,
+      "reverse_called_pct": null,
+      "false_alarms_per_empty_frame": 0.35,
+      "_counts": {
+        "frames": 60,
+        "with_gt": 0,
+        "detected": 0,
+        "colour_correct": 0,
+        "colour_wrong": 0,
+        "missed": 0,
+        "side_correct": 0,
+        "side_wrong": 0,
+        "side_nocall": 0,
+        "side_reverse": 0,
+        "empty_frames": 60,
+        "empty_false_alarms": 21,
+        "centre_in_gt": 0
+      }
+    },
+    {
+      "split": "val_real_matched_stills",
+      "frames": 98,
+      "frames_with_pillar": 98,
+      "empty_frames": 0,
+      "detect_rate_pct": 63.3,
+      "miss_rate_pct": 36.7,
+      "colour_accuracy_given_detection_pct": 90.3,
+      "centre_inside_gt_box_pct": 72.6,
+      "pass_side_correct_pct": 33.7,
+      "pass_side_WRONG_pct": 0.0,
+      "committed_calls_pct": 33.7,
+      "accuracy_among_committed_calls_pct": 100.0,
+      "no_call_hold_course_pct": 50.0,
+      "reverse_called_pct": 16.3,
+      "false_alarms_per_empty_frame": null,
+      "_counts": {
+        "frames": 98,
+        "with_gt": 98,
+        "detected": 62,
+        "colour_correct": 56,
+        "colour_wrong": 6,
+        "missed": 36,
+        "side_correct": 33,
+        "side_wrong": 0,
+        "side_nocall": 49,
+        "side_reverse": 16,
+        "empty_frames": 0,
+        "empty_false_alarms": 0,
+        "centre_in_gt": 45
+      }
+    },
+    {
+      "split": "val_real_matched_video",
+      "frames": 26,
+      "frames_with_pillar": 26,
+      "empty_frames": 0,
+      "detect_rate_pct": 100.0,
+      "miss_rate_pct": 0.0,
+      "colour_accuracy_given_detection_pct": 80.8,
+      "centre_inside_gt_box_pct": 80.8,
+      "pass_side_correct_pct": 34.6,
+      "pass_side_WRONG_pct": 3.8,
+      "committed_calls_pct": 38.5,
+      "accuracy_among_committed_calls_pct": 90.0,
+      "no_call_hold_course_pct": 23.1,
+      "reverse_called_pct": 38.5,
+      "false_alarms_per_empty_frame": null,
+      "_counts": {
+        "frames": 26,
+        "with_gt": 26,
+        "detected": 26,
+        "colour_correct": 21,
+        "colour_wrong": 5,
+        "missed": 0,
+        "side_correct": 9,
+        "side_wrong": 1,
+        "side_nocall": 6,
+        "side_reverse": 10,
+        "empty_frames": 0,
+        "empty_false_alarms": 0,
+        "centre_in_gt": 21
+      }
+    }
+  ],
+  "arm_b_condition_matched_calibration": {
+    "stills": {
+      "calibration": {
+        "red": {
+          "a_center": 29.883115768432617,
+          "b_center": 23.521984100341797,
+          "tol": 15.0,
+          "l_min": 19.74822998046875
+        },
+        "green": {
+          "a_center": -16.89571189880371,
+          "b_center": 8.58803939819336,
+          "tol": 13.973894731478143,
+          "l_min": 15.416179656982422
+        }
+      },
+      "train_images": 343,
+      "val_images": 98,
+      "boxes_sampled": {
+        "red": 200,
+        "green": 154
+      }
+    },
+    "video": {
+      "calibration": {
+        "red": {
+          "a_center": 48.50706481933594,
+          "b_center": 38.73714065551758,
+          "tol": 12.248365750161646,
+          "l_min": 18.406423568725586
+        },
+        "green": {
+          "a_center": -19.09862518310547,
+          "b_center": 7.840913772583008,
+          "tol": 11.76472488171756,
+          "l_min": 21.417945861816406
+        }
+      },
+      "train_images": 130,
+      "val_images": 26,
+      "boxes_sampled": {
+        "red": 57,
+        "green": 73
+      }
+    }
+  },
+  "caveats": [
+    "Calibration fitted on train split only; val never used to fit.",
+    "Dataset camera and lighting differ from the robot's Lenovo 300 FHD; the race procedure recalibrates on the day. Validates method, not venue.",
+    "Single images cannot exercise the 5-of-7 temporal vote, so the false-alarm figures are per-frame and conservative vs runtime.",
+    "Co-occurrence frames are composited, not photographed; treat as indicative in both directions."
+  ]
+}

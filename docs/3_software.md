@@ -37,54 +37,78 @@ and there is no landmark in the Open Challenge to correct against.
 
 ---
 
-## 2. Obstacle Challenge — implemented off-repo, pending landing
+## 2. Obstacle Challenge — implemented
 
-**Status: controller and Pi runtime are implemented and bench-tested off this
-repository.** They land here after three integration fixes: the wireless
-telemetry link is removed for rule 11.10 compliance, the BNO055 mux-channel map
-is verified against the physical harness, and driver standby handling is
-confirmed. Until they land, the state machine below is the specification of
-record — written before the build so the reasoning could be criticised first.
+**Status: landed.** Controller (`src/Round 2/main.cpp`) and Pi runtime
+(`src/Round 2/round2.py`) are in this repository. The three integration fixes
+that gated the landing are done: the wireless telemetry link is compiled out
+behind `ENABLE_BLUETOOTH 0` for rule 11.10 compliance, the BNO055 sits on
+verified multiplexer channel 4, and the TB6612 standby line is driven high
+unconditionally. The state machine below documents the controller as flashed.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> BOOT
-    BOOT --> HEADING_LOCK : IMU calibrated
-    HEADING_LOCK --> LAP_DRIVE : target heading captured
+    [*] --> WAIT_FOR_START
+    WAIT_FOR_START --> DRIVING_STRAIGHT : start button (50 ms debounce), heading captured at press
 
-    LAP_DRIVE --> CORNER_TURN : side LiDAR rising edge > 150 cm
-    CORNER_TURN --> LAP_DRIVE : heading error < 5 deg
-    CORNER_TURN --> LAP_COUNT : 4th corner of a lap
+    DRIVING_STRAIGHT --> TURNING : |L-R| > 100 cm for 5 consecutive loops, same direction
+    TURNING --> DRIVING_STRAIGHT : raw heading within 6 deg of target, 300 ms cooldown
 
-    LAP_DRIVE --> PILLAR_ACT : pass-side call, conf >= 0.45
-    PILLAR_ACT --> LAP_DRIVE : pillar bottom edge leaves frame
+    DRIVING_STRAIGHT --> OBSTACLE_AVOIDING : RED / GREEN (5-of-7 confirmed, inside height band, not yet pass-side safe)
+    OBSTACLE_AVOIDING --> DRIVING_STRAIGHT : CLEAR (10-frame debounce) or 1.5 s dead-man
+    OBSTACLE_AVOIDING --> REVERSING : REVERSE (pillar height > 80 px)
+    REVERSING --> OBSTACLE_AVOIDING : REVERSE stream silent 250 ms
 
-    LAP_COUNT --> LAP_DRIVE : laps < 3
-    LAP_COUNT --> PARK_SEARCH : laps == 3
-
-    PARK_SEARCH --> PARALLEL_PARK : magenta wall pair acquired
-    PARALLEL_PARK --> [*] : inside the parking bay
+    DRIVING_STRAIGHT --> ROBOT_STOPPED : 12 turns done and centre LiDAR < 165 cm
+    ROBOT_STOPPED --> [*]
 ```
+
+### The serial protocol, and why it is state-gated
+
+The Pi speaks five messages at 115200 baud: `RED`, `GREEN`, `CLEAR`, `REVERSE`,
+and `POS,cx,h` (Kalman-smoothed pillar centre-x and height, every tracked
+frame). The active colour is re-sent every 0.5 s as a keepalive; the controller
+auto-clears after 1.5 s of silence, so a dead link degrades to heading-hold
+instead of a runaway swerve.
+
+Commands are honoured only where they are safe. `RED`/`GREEN` are accepted
+while driving straight **or already avoiding** — a mid-avoid colour switch must
+flip the swerve, a failure we hit in testing. Everything is ignored during
+`TURNING` (a corner is never aborted halfway) and after `ROBOT_STOPPED` (a
+stray post-finish detection must never restart the vehicle, rule 9.24).
 
 ### Why this shape
 
-- **`LAP_DRIVE` is the default and every other state returns to it.** Any state
-  that cannot make progress falls back to heading-hold, which is the behaviour
-  that scores worst-case rather than crashes.
-- **`PILLAR_ACT` is a lateral heading offset, not a separate controller.** The
-  pass manoeuvre biases the same target heading the steering loop is already
-  tracking. One controller, no handover, no second tuning problem.
-- **No call is a state transition that does not happen.** A detector output below
-  threshold leaves the machine in `LAP_DRIVE`. Holding course is the safe default;
-  see the operating-point argument below.
-- **`PILLAR_ACT` exits on the pillar bottom edge leaving frame, not on a timer.**
-  A timer has to be tuned against a speed that is not yet chosen, because the
-  drivetrain does not exist. The geometric exit condition survives that.
+- **`DRIVING_STRAIGHT` is the default and every other state returns to it.**
+  Any state that cannot make progress falls back to PD heading-hold, which is
+  the behaviour that scores worst-case rather than crashes.
+- **Avoidance is a gradient, with the field-proven full lock as its boundary.**
+  The steer offset is proportional to how far the pillar sits from its
+  pass-side safe line in the frame (`offset = KV * error`, floored at a small
+  minimum while error remains, clamped to the +/-35 mechanical envelope). Large
+  error saturates to exactly the old binary full-lock swerve, which also
+  remains the fallback until the first `POS` of each pillar arrives. Field
+  evidence is never thrown away — it becomes the clamp.
+- **Detection is gated by voting, not by a confidence score.** The calibrated-Lab
+  picker has no confidence scalar; a colour must appear in 5 of the last 7
+  frames, inside the height band, and short of its pass-side line before a
+  command is sent. Holding course remains the safe default.
+- **Heading is captured at the start button, not at boot** — with the vehicle
+  placed on the mat, so the reference frame is the field. The BNO055 runs in
+  IMUPLUS mode (no magnetometer: drive-motor magnets cannot distort yaw), and
+  each turn target is stepped +/-90 deg **from the previous target**, so the
+  four leg headings stay exactly orthogonal in any reference frame and drift
+  cannot accumulate across twelve turns.
+- **Corner spikes must persist.** A pillar occluding one side LiDAR can fake the
+  left-right asymmetry for a frame or two; requiring 5 consecutive
+  same-direction loops rejects it. Turn completion is checked on the raw
+  heading — the smoothing filter's ~200 ms lag would overshoot every corner.
 
-### Not yet specified
+### Designed, not yet implemented
 
-**Parking is confirmed in-scope (decided 2026-08-06)** — the `PARK_SEARCH` /
-`PARALLEL_PARK` states above are a commitment, not an option. The scoring
+**Parking is confirmed in-scope (decided 2026-08-06)** — `PARK_SEARCH` /
+`PARALLEL_PARK` states are a commitment, not an option, but they are not in
+the flashed controller yet. The scoring
 table settles it: rule 1.8.3 pays 7 points even for a partial or non-parallel
 park, so a crude, conservative attempt strictly dominates a descope (full
 rationale: [4 — Decisions](4_systems_and_decisions.md), D7). Two constraints
@@ -95,9 +119,9 @@ calibrated magenta class or TF-Luna geometry against the 20 mm limiters; and
 rule 9.24.7 ends the round on touching a limiter, which caps how aggressive
 the manoeuvre may be.
 
-Parking-bay entry geometry, and the speed profile through `PILLAR_ACT` — both
-remain unspecified; they now wait on the new chassis dimensions and the tuned
-drive speed (see [1 — Mobility](1_mobility.md)).
+Parking-bay entry geometry, and the tuned value of the gradient gain `KV` —
+both wait on the new chassis dimensions and mat time (see
+[1 — Mobility](1_mobility.md)).
 
 ---
 
@@ -106,11 +130,11 @@ drive speed (see [1 — Mobility](1_mobility.md)).
 **Stack of record (2026-08-05): calibrated-Lab colour picker.** One (a,b) chroma
 disc per colour in CIELab, sampled interactively at the venue (median + MAD sets
 the tolerance, capped), with an L floor and a chroma gate; largest connected
-component with extent and aspect gates; 3-of-5 temporal vote; nearest pillar by
+component with extent and aspect gates; 5-of-7 temporal vote; nearest pillar by
 lowest box bottom edge. Per-venue calibration is a deliberate reversal of the
 fixed published-value-band philosophy — reasoning in
 [D6](4_systems_and_decisions.md#d6--neural-detector-superseded-in-the-field-calibrated-per-venue-picker-adopted).
-The runtime is implemented off-repo and lands with the Round 2 controller.
+The runtime is landed at `src/Round 2/round2.py` alongside the controller.
 
 ![Live detection on the Pi 5](img/detector-live-pi5-dual-pillar.jpg)
 ![Bench setup](img/detector-bench-setup.jpg)
@@ -132,10 +156,72 @@ selection evidence vs `tiny_pillar`:
 All figures on the leakage-free group-wise validation split (124 real images).
 They belong to the superseded neural stack and are retained as selection
 evidence; the *method* — the sweep, asymmetric error costs, failure
-decomposition — carries over to the current stack, whose own figures are the
-next measurement.
+decomposition — carries over to the current stack, whose own figures are in
+§4.1 below. Raw output for every table in this document is committed under
+`docs/eval_raw/`.
+
+### 4.1 The picker's own figures (current stack of record)
+
+Measured 2026-08-08 by `src/Round 2/eval_picker.py`, which imports the detection
+functions from `round2.py` **verbatim** — no reimplementation, so what is
+measured is the code that runs on the robot. Calibration is fitted with the
+shipped `calibrate_color()` on the **train** split only; the val images below
+were never used to fit it. Raw: `docs/eval_raw/picker_eval_summary.txt`.
+
+| | pooled calibration | condition-matched calibration |
+|---|---|---|
+| Detection rate (nearest pillar) | 68.5 % | 63.3 % stills · 100 % video |
+| Colour correct, given a detection | 76.5 % | **90.3 %** stills · 80.8 % video |
+| Pass-side calls committed | 33.1 % (41/124) | 33.7 % stills · 38.5 % video |
+| **Accuracy among committed calls** | 90.2 % (37/41) | **100 % (33/33)** stills · 90.0 % (9/10) video |
+| **Wrong-side rate** | 3.2 % | **0.0 %** stills · 3.8 % video |
+| Hold course (pillar under the 45 px gate) | 50.8 % | 50.0 % · 23.1 % |
+| False detections per empty frame | 0.35 (21/60) | — |
+| Latency, 240×240 | 4.6 ms median (desktop, **not a Pi figure**) | — |
+
+**The finding, and it changed race procedure.** Pooling calibration samples
+across two acquisition sessions drives red's tolerance to exactly 15.00 — the
+`max_tol` ceiling — because the two sessions disagree about what red *is*: their
+fitted red centres sit **24.0 apart** in Lab (a,b) (stills a=29.9 b=23.5; video
+a=48.5 b=38.7) while the tolerance is only 12–15. One circle cannot cover both,
+so the pooled fit lands between them and clips both. Calibrating within a single
+condition removes the wrong-side calls entirely on the stills family (0 wrong in
+33 committed calls) and lifts colour accuracy 76.5 % → 90.3 %.
+
+This is the measured form of the field failure we recorded on 2026-08-06
+("detector fails on slight colour shift"). It is not a defect to be tuned away —
+it is a property of thresholding raw colour, and the procedural answer is to
+calibrate **at the venue, in the venue's light**, and never reuse a calibration
+across lighting. That is what `--calib` JSON persistence exists for: calibrate
+once during check time, then run headless from the saved file.
+
+**Honest limits of this table.** The dataset was shot on a different camera than
+the robot's, so these numbers validate the *method*, not venue performance.
+Still images cannot exercise the 5-of-7 temporal vote, so the false-alarm figure
+is per-frame and is therefore an upper bound on what the runtime does. The
+co-occurrence arm is the weakest result — 47.1 % among committed calls (8 right,
+9 wrong out of 60 composited frames), i.e. a coin flip when two pillars are
+visible; those frames are composited rather than photographed, but the direction
+matches the known dominant failure and it is why the mid-avoid colour-switch fix
+was made a blocker rather than a nicety. Set against that,
+[`other/bench-2026-08-05/bench-5.jpeg`](../other/bench-2026-08-05/bench-5.jpeg)
+shows the runtime resolving a real red and a real green pillar simultaneously and
+correctly on the deployed camera — one frame, so it settles nothing, but it is
+reason to treat the composited proxy as pessimistic and to re-measure against
+real two-pillar footage.
+
+**Two limits this measurement exposed, both now on the record.** The 4.6 ms is
+the hand-rolled NumPy Lab conversion in `round2.py`; `pillar_fast.py` does the
+same conversion through `cv2.cvtColor` in 0.43 ms. On Pi-class hardware that
+difference decides whether the loop clears 30 fps, and it is the first
+optimisation to make if the field run is frame-starved. Second, 50.8 % of val
+frames sit below the 45 px swerve gate — the gate is doing most of the work in
+this dataset, so the detection numbers above describe a harder regime than the
+close-range decisions that actually score.
 
 ### Confidence-threshold sweep
+
+Superseded stack. Raw: `docs/eval_raw/nanodet_sweep_raw.txt`.
 
 | thr | val acc | wrong side | no call | both-pillar wrong | false det / empty frame |
 |---|---|---|---|---|---|

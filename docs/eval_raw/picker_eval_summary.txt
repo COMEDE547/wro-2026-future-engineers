@@ -1,0 +1,55 @@
+picker eval  2026-08-08T05:46:09+00:00
+SUT round2.py sha256 a8a005625afa8f5f
+
+[val_real] frames=124 with_pillar=124 empty=0
+    detect_rate_pct                            68.5
+    miss_rate_pct                              31.5
+    colour_accuracy_given_detection_pct        76.5
+    centre_inside_gt_box_pct                   65.9
+    pass_side_correct_pct                      29.8
+    pass_side_WRONG_pct                        3.2
+    committed_calls_pct                        33.1
+    accuracy_among_committed_calls_pct         90.2
+    no_call_hold_course_pct                    50.8
+    reverse_called_pct                         16.1
+
+[val_cooccurrence] frames=60 with_pillar=60 empty=0
+    detect_rate_pct                            81.7
+    miss_rate_pct                              18.3
+    colour_accuracy_given_detection_pct        63.3
+    centre_inside_gt_box_pct                   55.1
+    pass_side_correct_pct                      13.3
+    pass_side_WRONG_pct                        15.0
+    committed_calls_pct                        28.3
+    accuracy_among_committed_calls_pct         47.1
+    no_call_hold_course_pct                    41.7
+    reverse_called_pct                         30.0
+
+[val_negatives] frames=60 with_pillar=0 empty=60
+    false_alarms_per_empty_frame               0.35
+
+[val_real_matched_stills] frames=98 with_pillar=98 empty=0
+    detect_rate_pct                            63.3
+    miss_rate_pct                              36.7
+    colour_accuracy_given_detection_pct        90.3
+    centre_inside_gt_box_pct                   72.6
+    pass_side_correct_pct                      33.7
+    pass_side_WRONG_pct                        0.0
+    committed_calls_pct                        33.7
+    accuracy_among_committed_calls_pct         100.0
+    no_call_hold_course_pct                    50.0
+    reverse_called_pct                         16.3
+
+[val_real_matched_video] frames=26 with_pillar=26 empty=0
+    detect_rate_pct                            100.0
+    miss_rate_pct                              0.0
+    colour_accuracy_given_detection_pct        80.8
+    centre_inside_gt_box_pct                   80.8
+    pass_side_correct_pct                      34.6
+    pass_side_WRONG_pct                        3.8
+    committed_calls_pct                        38.5
+    accuracy_among_committed_calls_pct         90.0
+    no_call_hold_course_pct                    23.1
+    reverse_called_pct                         38.5
+
+latency median 4.589 ms p95 4.734 ms (desktop)
