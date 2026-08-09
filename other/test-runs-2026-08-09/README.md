@@ -1,8 +1,11 @@
 # Drive-speed test runs — 2026-08-09
 
 Two runs on the Obstacle Challenge mat, recorded on the same day at two motor
-speed settings. They are kept together because the pair is the evidence: the
-same firmware and the same track, changed in one variable.
+speed settings. They are kept together because the pair is the evidence: **the
+same firmware revision ran in both, and the speed setting is the only thing that
+changed** — so the difference in outcome is attributable to speed and not to a
+code change. The two [2026-08-08 runs](../test-runs-2026-08-08) are each a
+different revision and cannot be compared against these or against each other.
 
 **These are not the competition demonstration videos.** Those are linked from
 [`video/video.md`](../../video/video.md) as required. What follows is test
