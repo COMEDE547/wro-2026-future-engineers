@@ -20,8 +20,10 @@ ignores when absent.
 
 1. On startup the current BNO055 Euler yaw is captured as the **target heading**.
 2. `steerToHeading()` nulls the error between current and target heading, wrapped
-   to +/-180 deg, and drives the servo proportionally: `STEER_GAIN = 1.5`
-   servo-degrees per degree of heading error, clamped to 45-135 deg.
+   to +/-180 deg, and drives the servo proportionally: `STEER_GAIN = 1.0`
+   servo-degree per degree of heading error with a 2.0 deg deadband, clamped to
+   the asymmetric 64-136 window about the 106 centre (retuned 2026-08-10,
+   `58adb1c`; was 1.5 gain / 45-135).
 3. **Corner detection** is a rising-edge test, not a threshold test: a corner is
    declared when a side TF-Luna transitions from "wall present" to reading
    **> 150 cm** (`OPENING_CM`). The target heading is then stepped by 90 deg
