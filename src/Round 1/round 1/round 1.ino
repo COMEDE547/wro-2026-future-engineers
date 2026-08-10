@@ -195,7 +195,7 @@ void loop() {
 #define MOTOR_INVERT       false   // flip if the robot drives backward
 #define START_DELAY_MS     1500    // hands-off pause inside startDrive()
 #define MAX_TURNS          12      // 3 laps x 4 corners
-#define FINAL_RUN_MS       500     // <-- THE knob: drive this long AFTER the last turn completes (~150 cm) - tune on the mat
+#define FINAL_RUN_MS       500     // <-- THE knob: drive this long AFTER the last turn completes (~0.45-0.5 m at DRIVE_SPEED 1000 — arithmetic, unmeasured; tune on the mat)
 #define TURN_SETTLED_DEG   15      // heading within this many deg of target = last turn considered complete
 #define SETTLE_TIMEOUT_MS  4000    // failsafe: start the run-on anyway if heading never settles
 

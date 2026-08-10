@@ -29,7 +29,7 @@ original reasoning is kept rather than deleted — the reversal is the useful pa
 |---|---|---|
 | Perception compute | Raspberry Pi 5, CPU only | No accelerator in budget; forces a model small enough to run without one |
 | Deploy model size | <= 5 MB | Keeps the ONNX in git rather than in a release, so the exact deployed weights are version-controlled |
-| Motion compute | ESP32, separate from perception | Steering must keep running at ~50 Hz even if the vision process stalls |
+| Motion compute | ESP32, separate from perception | Steering must keep running at its design rate (~50 Hz nominal) even if the vision process stalls |
 | Wrong-side calls | minimised in preference to no-calls | A *no call* means hold course and is recoverable. A *wrong side* is scored against you. The two errors are not symmetric and the operating point is chosen accordingly. |
 | Every number in this repo | reproducible from a committed script | Prevents documentation drifting away from the data it describes |
 

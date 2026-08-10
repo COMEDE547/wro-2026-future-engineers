@@ -22,15 +22,17 @@ does not write around it.
 | Actuator | Servo on `GPIO13` | `src/Round 1/round 1/round 1.ino` |
 | Servo model | **MG90, metal gears** | read off hardware 2026-08-06 |
 | Pulse range | 500-2400 us at 50 Hz | firmware |
-| Angle range | 45-135 deg, 90 deg = straight | firmware, `constrain()` |
-| Control law | proportional on heading error, `STEER_GAIN = 1.5` servo-deg per deg of error | firmware |
-| Loop rate | ~50 Hz | firmware |
+| Angle range | 64-136 deg, 106 = straight — asymmetric about center (−42/+30); retuned 2026-08-10 (`58adb1c`), was 45-135 / 90 | firmware, `constrain()` |
+| Control law | proportional on heading error, `STEER_GAIN = 1.0` servo-deg per deg of error + 2.0 deg deadband; retuned 2026-08-10, was 1.5 / no deadband | firmware |
+| Loop rate | ~50 Hz nominal (20 ms delay; effective rate unmeasured) | firmware |
 
 ### A number that falls out of those two
 
-`STEER_GAIN = 1.5` with a +/-45 deg travel limit means the steering **saturates at
-30 degrees of heading error** (45 / 1.5). Beyond that the vehicle is at full lock
-and the controller is open-loop until the error falls back under 30 deg.
+`STEER_GAIN = 1.0` with the asymmetric −42/+30 deg travel about center means the
+steering **saturates at 42 deg of heading error toward one side and 30 deg toward
+the other** (retuned 2026-08-10; the original 1.5-gain / ±45 tune saturated at
+30 deg both ways). Beyond saturation the vehicle is at full lock and the
+controller is open-loop until the error falls back under the limit.
 
 That is intentional and it sets the corner behaviour: a 90 deg heading step at a
 corner puts the controller into saturation immediately and holds full lock through
@@ -58,18 +60,20 @@ not by the absence of an I term.
 | Battery | **3S Li-Po, 11.1 V nominal, 2600 mAh, DC-jack output** | read off pack 2026-08-06 |
 | Driver | TB6612FNG, channel A | `src/Round 1/round 1/round 1.ino` |
 | Pins | AIN1 `GPIO25` · AIN2 `GPIO26` · PWMA `GPIO33` · STBY `GPIO27` (or tied 3V3) | firmware |
-| PWM | 20 kHz, 10-bit (0-1023), cruise duty 550 | firmware |
-| Stop logic | an observer counts the 90-deg heading steps the corner logic makes; after 12 turns and heading settled within 15 deg (4 s failsafe), a 1500 ms timed run-on, then short-circuit brake | firmware |
+| PWM | 20 kHz, 10-bit (0-1023), cruise duty 1000 — retuned 2026-08-10 (`58adb1c`), was 550; 98 % duty leaves no headroom and drifts as the pack sags | firmware |
+| Stop logic | an observer counts the 90-deg heading steps the corner logic makes; after 12 turns and heading settled within 15 deg (4 s failsafe), a 500 ms timed run-on (was 1500 ms; retuned 2026-08-10), then short-circuit brake | firmware |
 
 Integration is append-only: the original steering / corner logic is
 byte-untouched, and the module observes `targetHeading` steps rather than
 modifying the trigger code. Physical bring-up — direction check, `MOTOR_INVERT`,
-duty tune on the mat — is pending the build.
+duty tune on the mat — ~~is pending the build~~ **happened 2026-08-08/09**
+(test footage under `other/`); cruise duty retuned to 1000 in `58adb1c`.
 
 ![Chassis prototype during steering-centre calibration](img/chassis-prototype-steering-bringup-1.jpg)
 *Chassis prototype during steering bring-up — servo tester holding the 90-deg
 centre position. Prototype hardware; the competition chassis configuration is
-not yet frozen.*
+not yet frozen. — Superseded 2026-08-10: this frame IS the final competition
+chassis (rebuild cancelled, see below), and the mat-tuned centre moved to 106.*
 
 ![Underside: N20 into the LEGO differential](../v-photos/vehicle-bottom.jpg)
 *Underside of the built vehicle: the N20's pinion drives a LEGO differential on
