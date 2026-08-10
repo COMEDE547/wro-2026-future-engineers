@@ -28,13 +28,13 @@
 #define CH_IMU        4
 
 // ---------- Steering / turn tunables ----------
-#define SERVO_MIN_ANGLE   45     // servo lower limit (deg)
-#define SERVO_MAX_ANGLE   135    // servo upper limit (deg)
-#define SERVO_CENTER      90     // wheels-straight angle
-#define STEER_GAIN        1.5    // servo deg per deg of heading error
+#define SERVO_MIN_ANGLE   64     // servo lower limit (deg)
+#define SERVO_MAX_ANGLE   136    // servo upper limit (deg)
+#define SERVO_CENTER      106    // wheels-straight angle
+#define STEER_GAIN        1      // servo deg per deg of heading error
 #define OPENING_CM        150    // side reading above this = corner/opening
 #define TURN_STEP_DEG     90     // heading change per detected opening
-
+#define STEER_DEADBAND    2.0
 #define SERVO_PULSE_MIN   500    // us
 #define SERVO_PULSE_MAX   2400   // us
 #define LOOP_DELAY_MS     20
@@ -89,9 +89,11 @@ void captureReference() {
 
 // ---------- Steering: proportional correction toward targetHeading ----------
 int steerToHeading(float h, float target) {
-  float error = wrap180(h - target);                 // -180..+180
-  float angle = SERVO_CENTER + STEER_GAIN * error;   // counter-steer to correct
+  float error = wrap180(h - target);
+  if (fabsf(error) < STEER_DEADBAND) error = 0;
+  float angle = SERVO_CENTER - STEER_GAIN * error;
   angle = constrain(angle, SERVO_MIN_ANGLE, SERVO_MAX_ANGLE);
+  Serial.printf("  [steer] err=%.1f angle=%.1f\n", error, angle);
   servo.write((int)angle);
   return (int)angle;
 }
@@ -119,39 +121,53 @@ void initServo() {
 void setup() {
   Serial.begin(115200);
   delay(300);
-  initIMU();
   initServo();
+  delay(300);
+  initIMU();
   initMotor();
   captureReference();
   Serial.println("\nReady: driving straight, turning at openings.\n");
+  // pinMode(32, INPUT_PULLUP);int btn = digitalRead (32);
+  // while(btn == 1){digitalRead (32);}
   startDrive();
 }
 
 void loop() {
-  int   l = left();
-  int   c = center();
-  int   r = right();
-  float h = readHeading();
-
-  // Detect a corner: trigger once on the wall->open transition (rising edge)
+  static unsigned long lidarResumeAt = 0;      // lunas paused until this millis()
   static bool leftWasOpen  = false;
   static bool rightWasOpen = false;
-  bool lOpen = (l > OPENING_CM);
-  bool rOpen = (r > OPENING_CM);
 
-  if (lOpen && !leftWasOpen)  targetHeading -= TURN_STEP_DEG;   // opening left  -> turn left
-  if (rOpen && !rightWasOpen) targetHeading += TURN_STEP_DEG;   // opening right -> turn right
+  float h = readHeading();                      // always read heading, always steer
 
-  leftWasOpen  = lOpen;
-  rightWasOpen = rOpen;
+  int l = -1, c = -1, r = -1;
+  bool lidarPaused = (millis() < lidarResumeAt);
 
-  // Steer to hold (or reach) the target heading
+  if (!lidarPaused) {
+    l = left();
+    c = center();
+    r = right();
+
+    bool lOpen = (l > OPENING_CM);
+    bool rOpen = (r > OPENING_CM);
+
+    bool turned = false;
+    if (lOpen && !leftWasOpen)  { targetHeading -= TURN_STEP_DEG; turned = true; }
+    if (rOpen && !rightWasOpen) { targetHeading += TURN_STEP_DEG; turned = true; }
+
+    leftWasOpen  = lOpen;
+    rightWasOpen = rOpen;
+
+    if (turned) lidarResumeAt = millis() + 1000;   // corner taken -> mute lunas 1 s
+  }
+  // during the pause: no reads, no corner detection — but steering stays live
+
   int servoAngle = steerToHeading(h, targetHeading);
 
-  Serial.printf("L=%4d C=%4d R=%4d cm  H=%6.1f  Tgt=%6.1f  Servo=%3d\n",
-                l, c, r, h, targetHeading, servoAngle);
+  Serial.printf("L=%4d C=%4d R=%4d cm  H=%6.1f  Tgt=%6.1f  Servo=%3d  %s\n",
+                l, c, r, h, targetHeading, servoAngle,
+                lidarPaused ? "[lidar muted]" : "");
 
-  trackTurnsAndStop();   // appended: counts corners your logic takes, brakes after MAX_TURNS
+  trackTurnsAndStop();
   delay(LOOP_DELAY_MS);
 }
 
@@ -175,11 +191,11 @@ void loop() {
 #define MOTOR_PWM_FREQ     20000   // Hz — above audible whine; TB6612 fine to 100 kHz
 #define MOTOR_PWM_BITS     10      // duty range 0..1023
 #define MOTOR_PWM_MAX      ((1 << MOTOR_PWM_BITS) - 1)
-#define DRIVE_SPEED        550     // cruise duty 0..1023 — tune on the mat
+#define DRIVE_SPEED        1000    // cruise duty 0..1023 — tune on the mat
 #define MOTOR_INVERT       false   // flip if the robot drives backward
 #define START_DELAY_MS     1500    // hands-off pause inside startDrive()
 #define MAX_TURNS          12      // 3 laps x 4 corners
-#define FINAL_RUN_MS       1500    // <-- THE knob: drive this long AFTER the last turn completes (~150 cm) - tune on the mat
+#define FINAL_RUN_MS       500     // <-- THE knob: drive this long AFTER the last turn completes (~150 cm) - tune on the mat
 #define TURN_SETTLED_DEG   15      // heading within this many deg of target = last turn considered complete
 #define SETTLE_TIMEOUT_MS  4000    // failsafe: start the run-on anyway if heading never settles
 
