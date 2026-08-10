@@ -131,7 +131,7 @@ lab(84.5, 37.6, "AO1/AO2", "#222222", 7.4)
 
 # ---------- data links ----------
 wire([(20, 96), (20, 90)], W_USB, 2.2, ls="--")
-lab(21.5, 93.0, "USB serial 115200 - RED/GREEN/POS - 1.5 s dead-man", W_USB, 7.4)
+lab(21.5, 93.0, "USB /dev/ttyUSB0 115200 - RED/GREEN/CLEAR/REVERSE/POS,cx,h - 1.5 s dead-man", W_USB, 7.2)
 wire([(37, 105), (44, 105)], W_USB, 2.2, ls="--")
 lab(37.8, 106.6, "USB", W_USB, 7.4)
 

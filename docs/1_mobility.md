@@ -151,6 +151,17 @@ axle interface that sheds under load; when the printed chassis lands with a
 before/after drive test, it becomes the drivetrain's first test-caused design
 change - and puts committable CAD in `models/`.
 
+**Superseded 2026-08-10: the rebuild is cancelled — this chassis is final.**
+How retention was resolved on this frame is not recorded; what is on record is
+that it now holds: the two 2026-08-09 Round-1 runs are 28 s and 29 s of
+continuous driving with no wheel loss
+([`other/test-runs-2026-08-09-round1/`](../other/test-runs-2026-08-09-round1/)),
+roughly six times the failure duration observed on 2026-08-06. The
+committable-CAD path narrows to the printed mounts already on the vehicle
+(3x TF-Luna, servo, N20 — the `models/` gate); there is no chassis CAD because
+there is no printed chassis. Residual gates: one full three-lap run, and the
+wall-strike stall case.
+
 **Impact path (answered 2026-08-06):** there is no sacrificial element and no
 bumper — a hard wheel strike feeds force directly into the steering servo
 (MG90, metal gears), and a head-on puts the chassis first against the wall.
