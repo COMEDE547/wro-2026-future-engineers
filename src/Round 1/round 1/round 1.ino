@@ -117,6 +117,24 @@ void initServo() {
   servo.attach(SERVO_PIN, SERVO_PULSE_MIN, SERVO_PULSE_MAX);
 }
 
+// ---------- Rule 9.11 wait-for-start (added 2026-08-10 - BENCH TEST PENDING) ----------
+// Replaces the old commented-out GPIO32 block, which was buggy anyway
+// ('btn' was never reassigned inside its loop -> would hang forever).
+// Uses the onboard BOOT button (GPIO0), matching Round 2's START_BUTTON_PIN.
+// GPIO0 is a strap pin (motor_control.h advises against it); acceptable here
+// because it is only read after boot completes. Revisit if an external
+// button lands on a different pin.
+#define START_BUTTON_PIN 0
+
+void waitForStart() {
+  pinMode(START_BUTTON_PIN, INPUT_PULLUP);
+  Serial.println("[start] waiting for start button (GPIO0 / BOOT)...");
+  while (digitalRead(START_BUTTON_PIN) == HIGH) delay(10);   // wait for press
+  delay(50);                                                 // debounce
+  while (digitalRead(START_BUTTON_PIN) == LOW)  delay(10);   // wait for release
+  Serial.println("[start] go - capturing heading reference");
+}
+
 // ---------- Main ----------
 void setup() {
   Serial.begin(115200);
@@ -125,10 +143,9 @@ void setup() {
   delay(300);
   initIMU();
   initMotor();
-  captureReference();
+  waitForStart();       // rule 9.11 no-touch start - blocks here until the button
+  captureReference();   // heading reference captured AT the start press
   Serial.println("\nReady: driving straight, turning at openings.\n");
-  // pinMode(32, INPUT_PULLUP);int btn = digitalRead (32);
-  // while(btn == 1){digitalRead (32);}
   startDrive();
 }
 
