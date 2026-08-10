@@ -29,10 +29,15 @@ int TURN_SPEED     = 100;  // Controlled speed for turning to prevent overshooti
 int BACKWARD_SPEED = -100; // Speed for backing up (if needed)
 
 
-int SERVO_CENTER   = 100;   // Dead-center steering alignment
-int DIFF = 35; 
-int SERVO_MAX_LEFT = SERVO_CENTER + DIFF;  // Physical mechanical limit for left turn
-int SERVO_MAX_RIGHT= SERVO_CENTER - DIFF;   // Physical mechanical limit for right turn
+int SERVO_CENTER   = 106;   // Dead-center steering alignment — aligned 2026-08-10 to Round 1's mat-tuned value (58adb1c); same physical linkage, chassis final
+int SERVO_MAX_LEFT  = 136;  // Physical linkage limit, higher-angle side (asymmetric about center: +30)
+int SERVO_MAX_RIGHT = 64;   // Physical linkage limit, lower-angle side  (asymmetric about center: -42)
+int DIFF = 42;              // Visual-swerve offset cap = the larger center-to-limit span; the per-side
+                            // constrain(SERVO_MAX_RIGHT, SERVO_MAX_LEFT) below truncates the shorter (+30) side.
+                            // 2026-08-10: was SERVO_CENTER±DIFF(35) symmetric — could not express the real
+                            // 64/136 window (106+35=141 would command past the linkage). NOT yet mat-tested
+                            // at these values: bench-verify steering direction (INVERT_STEERING) and center
+                            // before flashing for a run.
 
 // Change to true if your steering corrections move backwards during testing
 const bool INVERT_STEERING = true;
@@ -81,7 +86,7 @@ bool lockedDirectionLeft    = false; // Remembers if our layout is strictly Left
 int16_t currentLeftDist     = -1;
 int16_t currentCenterDist   = -1; 
 int16_t currentRightDist    = -1;
-int finalServoAngle         = 90;
+int finalServoAngle         = SERVO_CENTER;  // start at center (2026-08-10: was 90 ≠ center — latent init smell)
 float headingError          = 0.0;
 float angleDifference       = 0.0;
 float lastHeadingError       = 0.0;   // NEW: needed to calculate the D term

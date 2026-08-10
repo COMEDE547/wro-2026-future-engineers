@@ -52,7 +52,7 @@ box(4, 96, 33, 16, C_DARK, "Raspberry Pi 5",
     [("pillar detection", GY), ("pass-side decision", GY),
      ("PWR 5 V/5 A - SOURCE TBD", TBD)])
 box(44, 100, 31, 12, C_DARK, "USB UVC webcam",
-    [("MJPEG 640x480 @30", GY), ("model under verification", TBD)])
+    [("MJPEG 640x480 @30", GY), ("OMO/WCAM/11", GY)])
 box(4, 50, 33, 40, C_DARK, "ESP32 DevKit-V1",
     [("VIN 5V         GND", GY), ("GPIO21  I2C SDA", GY),
      ("GPIO22  I2C SCL", GY), ("GPIO13  servo sig", GY),
@@ -72,8 +72,8 @@ box(46, 23, 38, 27, C_RED, "TB6612FNG  ch A",
      ("limit 1.2 A cont / 3.2 A pk", GY),
      ("PWM: R1 20kHz/10b - R2 8b ~1kHz", GY)])
 box(90, 28, 27, 14, C_RED, "N20 gearmotor",
-    [("600 RPM class", GY), ("rated V: TBD", TBD),
-     ("stall 0.75A @6V ds", GY)])
+    [("GA12-N20-600 class", GY), ("12 V rated - 600 RPM - 1:50", GY),
+     ("stall 0.75 A (listing)", GY)])
 box(128, 100, 48, 12, C_BLUE, "TF-Luna LEFT   @0x10",
     [("I2C ranging - side", GY), ("5 V supply / 3V3 logic", GY)])
 box(128, 85, 48, 12, C_BLUE, "TF-Luna CENTRE @0x10",
@@ -104,9 +104,9 @@ box(128, 2, 48, 46, "#26262e", "NOTES", [
     ("R2 dual 5V into ESP32:", GY),
     ("buck VIN + Pi USB VBUS -", GY),
     ("verify DevKit diode-OR.", GY),
-    ("TBD: buck rating - N20", TBD),
-    ("rated V - Pi supply path -", TBD),
-    ("camera model - Luna 5V tap.", TBD)], lsz=8.2)
+    ("TBD: buck rating - Pi", TBD),
+    ("supply path - camera FOV -", TBD),
+    ("Luna 5V tap point.", TBD)], lsz=8.2)
 
 # ---------- signal wires ----------
 wire([(37, 78), (42, 78), (42, 76), (46, 76)], W_I2C, 2.2)

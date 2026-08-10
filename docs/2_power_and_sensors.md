@@ -6,7 +6,7 @@
 
 | Board | Role | Why it is separate |
 |---|---|---|
-| **ESP32** | Sensing loop, heading hold, servo steering | Deterministic ~50 Hz loop. Must not be interrupted by a vision workload. |
+| **ESP32** | Sensing loop, heading hold, servo steering | Nominal ~50 Hz loop (20 ms delay; effective rate unmeasured — per-loop telemetry + I2C add cost). Must not be interrupted by a vision workload. |
 | **Raspberry Pi 5** | Pillar detection, pass-side decision | CPU-only inference. Chosen over an accelerator because none is in budget; that constraint is what forced the model to be small enough to matter (see [4 — Systems Thinking](4_systems_and_decisions.md)). |
 
 The two are deliberately not one board. A stalled detector must not stall the
@@ -21,7 +21,7 @@ steering loop — risk R7.
 | **BNO055** 9-DOF IMU | 1 | I2C `0x28`, mux ch4 | Absolute Euler yaw, 0-360 deg | MPU6050 — see below |
 | **TF-Luna** LiDAR | 3 | I2C `0x10`, mux ch0/1/2 | Distance, left / centre / right | HC-SR04 — see below |
 | **HC-SR04** ultrasonic | 3 | GPIO, interrupt-driven | Distance, front / left / right | *Retained as an alternative prototype, not the primary stack* |
-| **Camera** | 1 | USB UVC webcam | Pillar colour and bearing | **Lenovo 300 FHD** (identified 2026-08-06); 30 fps ceiling until a CSI module is fitted |
+| **Camera** | 1 | USB UVC webcam | Pillar colour and bearing | ~~Lenovo 300 FHD (identified 2026-08-06)~~ **OMO/WCAM/11 (team correction 2026-08-08, landed 2026-08-10)**; 30 fps ceiling until a CSI module is fitted |
 | **PCA9548A** mux | 1 | I2C `0x70` | 8-channel I2C fan-out | Mandatory — see address collision below |
 
 ### Why absolute-heading IMU over gyro integration
@@ -127,7 +127,10 @@ mat: the near pillar's base sits low in the frame, the far pillar's base sits
 just under the horizon. Base row is the range proxy.*
 
 **Resolved (2026-08-05): the fitted camera is a USB UVC webcam** (MJPEG,
-640 x 480 @ 30 fps). **Identified 2026-08-06: Lenovo 300 FHD.** Consequence: the
+640 x 480 @ 30 fps). ~~Identified 2026-08-06: Lenovo 300 FHD.~~ **Corrected
+2026-08-10 to OMO/WCAM/11** — the team flagged the model on 2026-08-08 and the
+docs lagged; the committed `docs/eval_raw/` JSON from the 08-08 measurement
+retains the old name as a frozen artifact of that run. Consequence: the
 high-frame-rate CSI capture path is gated on purchasing a CSI module, so 30 fps
 is the current ceiling. Field of view — and therefore the pixel budget per
 pillar at a given range — is pending a datasheet read verified against a

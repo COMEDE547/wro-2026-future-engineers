@@ -4,7 +4,7 @@ Two processors, one rule: **motion must never wait on perception.**
 
 | Processor | Runs | Rate | Fails how |
 |---|---|---|---|
-| ESP32 | heading hold, corner detection, servo steering | ~50 Hz | If it stops, the vehicle stops |
+| ESP32 | heading hold, corner detection, servo steering | ~50 Hz nominal (unmeasured) | If it stops, the vehicle stops |
 | Raspberry Pi 5 | pillar detection, pass-side decision | vision-rate, unmeasured on Pi | If it stops, the vehicle keeps driving on its last heading target |
 
 The split is deliberate. A detector stall on the Pi degrades the run to an Open
