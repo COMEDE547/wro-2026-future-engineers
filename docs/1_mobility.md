@@ -55,9 +55,10 @@ not by the absence of an I term.
 | Parameter | Value | Source |
 |---|---|---|
 | Motor | **N20 (GA12-N20-600 class): 12 V rated, 600 RPM no-load, 1:50 gearbox; 0.18 kg-cm rated / 0.65 kg-cm stall torque; 0.06 A rated / 0.75 A stall** — datasheet-class figures, pending our own §6 measurement | vendor listing (robu.in), read 2026-08-06 |
-| Transmission | spur pinion into a LEGO differential on the rear axle; external pinion:crown tooth ratio **uncounted** — the one number missing from the speed calculation | bottom view below |
+| Reduction | **20T pinion -> 28T ring gear on the LEGO differential (62821; 12T internal half-bevels) = 5:7 external reduction; wheels ~71 % of motor speed** | teeth counted off hardware 2026-08-11 |
+| Transmission | spur pinion into a LEGO differential on the rear axle; external pinion:crown tooth ratio **20:28, counted 2026-08-11** — closes the speed calculation (was the one missing number) | bottom view below + hardware count |
 | Driven axle / wheels | rear axle, both wheels through the differential; **rear 55.6 x 14 mm, front 41 x 21 mm** | measured 2026-08-06 |
-| Battery | **3S Li-Po, 11.1 V nominal, 2600 mAh, DC-jack output** | read off pack 2026-08-06 |
+| Battery | **3S Li-Po, 11.1 V nominal, 2200 mAh 60C** (the 2026-08-06 note said 2600 — label re-read 2026-08-11, 2200 is what is printed on the pack) | read off pack 2026-08-11 |
 | Driver | TB6612FNG, channel A | `src/Round 1/round 1/round 1.ino` |
 | Pins | AIN1 `GPIO25` · AIN2 `GPIO26` · PWMA `GPIO33` · STBY `GPIO27` (or tied 3V3) | firmware |
 | PWM | 20 kHz, 10-bit (0-1023), cruise duty 1000 — retuned 2026-08-10 (`58adb1c`), was 550; 98 % duty leaves no headroom and drifts as the pack sags | firmware |

@@ -58,6 +58,7 @@ stateDiagram-v2
 
     DRIVING_STRAIGHT --> OBSTACLE_AVOIDING : RED / GREEN (5-of-7 confirmed, inside height band, not yet pass-side safe)
     OBSTACLE_AVOIDING --> DRIVING_STRAIGHT : CLEAR (10-frame debounce) or 1.5 s dead-man
+    OBSTACLE_AVOIDING --> TURNING : corner spike while avoiding (armed 2026-08-11 - MAT-UNVERIFIED)
     OBSTACLE_AVOIDING --> REVERSING : REVERSE (pillar height > 80 px)
     REVERSING --> OBSTACLE_AVOIDING : REVERSE stream silent 250 ms
 
