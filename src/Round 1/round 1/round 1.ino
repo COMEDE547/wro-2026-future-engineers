@@ -120,15 +120,16 @@ void initServo() {
 // ---------- Rule 9.11 wait-for-start (added 2026-08-10 - BENCH TEST PENDING) ----------
 // Replaces the old commented-out GPIO32 block, which was buggy anyway
 // ('btn' was never reassigned inside its loop -> would hang forever).
-// Uses the onboard BOOT button (GPIO0), matching Round 2's START_BUTTON_PIN.
-// GPIO0 is a strap pin (motor_control.h advises against it); acceptable here
-// because it is only read after boot completes. Revisit if an external
-// button lands on a different pin.
-#define START_BUTTON_PIN 0
+// 2026-08-11: external start button confirmed wired on GPIO32 - the pin the
+// old commented block polled all along. Matches Round 2's START_BUTTON_PIN.
+// GPIO32 is a plain input (no strap-pin caveat, unlike the interim GPIO0).
+// Wiring assumption: button to GND, active LOW with internal pullup -
+// bench-verify polarity; if it starts instantly or never, invert the reads.
+#define START_BUTTON_PIN 32
 
 void waitForStart() {
   pinMode(START_BUTTON_PIN, INPUT_PULLUP);
-  Serial.println("[start] waiting for start button (GPIO0 / BOOT)...");
+  Serial.println("[start] waiting for start button (GPIO32 external)...");
   while (digitalRead(START_BUTTON_PIN) == HIGH) delay(10);   // wait for press
   delay(50);                                                 // debounce
   while (digitalRead(START_BUTTON_PIN) == LOW)  delay(10);   // wait for release
