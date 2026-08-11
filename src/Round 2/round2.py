@@ -9,6 +9,9 @@ import serial
 import argparse
 import json
 import os
+import glob
+import sys
+import logging
 import numpy as np
 import cv2
 import av
@@ -21,104 +24,119 @@ REVERSE_HEIGHT = 80  # if block is below this y, reverse instead of swerve
 LEFT_SIDE_MAX   = 90   # pixel x < this = left side
 RIGHT_SIDE_MIN  = 150   # pixel x > this = right side
 def rgb_to_lab(frame: np.ndarray) -> np.ndarray:
-    """Convert RGB to LAB color space."""
-    rgb = frame.astype(np.float32) / 255.0
-    mask = rgb > 0.04045
-    linear = np.where(mask, ((rgb + 0.055) / 1.055) ** 2.4, rgb / 12.92)
-    M = np.array([
-        [0.4124564, 0.3575761, 0.1804375],
-        [0.2126729, 0.7151522, 0.0721750],
-        [0.0193339, 0.1191920, 0.9503041],
-    ], dtype=np.float32)
-    xyz = linear @ M.T
-    xyz = xyz / np.array([0.95047, 1.0, 1.08883], dtype=np.float32)
-    delta = 6.0 / 29.0
-    f = np.where(xyz > delta ** 3, np.cbrt(xyz), xyz / (3 * delta ** 2) + 4.0 / 29.0)
-    fx, fy, fz = f[..., 0], f[..., 1], f[..., 2]
+    """2026-08-11 (research A2): OpenCV native LAB replaces the hand-rolled float32
+    pipeline — per-pixel pow/cbrt in NumPy was the suspected fps ceiling; cvtColor is
+    SIMD C. Output is OpenCV 8-bit LAB: L scaled 0..255 (x255/100), a and b offset
+    +128 (same units as before, only shifted). ALL calibration values now live in this
+    space; legacy float-LAB calib.json files migrate automatically in load_calib().
+    Verified against the old float path on synthetic frames (mask IoU, bbox parity) —
+    still confirm once on a saved real mat frame before trusting (RETUNE-REQUIRED only
+    if that check fails)."""
+    return cv2.cvtColor(frame, cv2.COLOR_RGB2LAB)
 
-    L = 116.0 * fy - 16.0
-    a = 500.0 * (fx - fy)
-    b = 200.0 * (fy - fz)
 
-    return np.stack([L, a, b], axis=-1)
+_AB_LUT_CACHE = {}
+
+
+def _ab_lut(a_center: float, b_center: float, tol: float, min_chroma: float = 10.0) -> np.ndarray:
+    """256x256 boolean lookup over (a,b): inside the calibrated chroma-distance circle
+    AND outside the gray core — exactly the old circular-mask semantics (a box inRange
+    would widen the corners), applied at fancy-indexing speed. Cached per calibration."""
+    key = (round(a_center, 2), round(b_center, 2), round(tol, 2), round(min_chroma, 2))
+    lut = _AB_LUT_CACHE.get(key)
+    if lut is None:
+        ax = np.arange(256, dtype=np.float32)
+        A, B = np.meshgrid(ax, ax, indexing='ij')
+        inside = ((A - a_center) ** 2 + (B - b_center) ** 2) < (tol * tol)
+        chroma = np.sqrt((A - 128.0) ** 2 + (B - 128.0) ** 2)
+        lut = inside & (chroma > min_chroma)
+        _AB_LUT_CACHE[key] = lut
+    return lut
+
+
+def migrate_calib_to_u8(calib: dict) -> dict:
+    """Deterministic legacy migration (research A2): float-LAB values carry the
+    documented affine map — a,b offset +128 (tolerance units unchanged), l_min x255/100."""
+    out = {"space": "cv2lab_u8"}
+    for color, c in calib.items():
+        if color == "space":
+            continue
+        out[color] = {
+            'a_center': float(c['a_center']) + 128.0,
+            'b_center': float(c['b_center']) + 128.0,
+            'tol': float(c['tol']),
+            'l_min': float(c['l_min']) * 255.0 / 100.0,
+        }
+    return out
+
+
+def mask_for(lab: np.ndarray, calib: dict, color: str) -> np.ndarray:
+    c = calib.get(color)
+    if c is None:
+        return np.zeros(lab.shape[:2], dtype=bool)
+    L, a, b = lab[..., 0], lab[..., 1], lab[..., 2]
+    return _ab_lut(c['a_center'], c['b_center'], c['tol'])[a, b] & (L > c['l_min'])
 
 
 def get_masks(lab: np.ndarray, calib: dict) -> tuple:
-    L, a, b = lab[..., 0], lab[..., 1], lab[..., 2]
-    chroma = np.sqrt(a ** 2 + b ** 2)
-    min_chroma = 10.0
-
-    red = calib.get('red')
-    green = calib.get('green')
-
-    red_mask = np.zeros(L.shape, dtype=bool)
-    green_mask = np.zeros(L.shape, dtype=bool)
-
-    if red is not None:
-        dist = np.sqrt((a - red['a_center']) ** 2 + (b - red['b_center']) ** 2)
-        red_mask = (dist < red['tol']) & (L > red['l_min']) & (chroma > min_chroma)
-
-    if green is not None:
-        dist = np.sqrt((a - green['a_center']) ** 2 + (b - green['b_center']) ** 2)
-        green_mask = (dist < green['tol']) & (L > green['l_min']) & (chroma > min_chroma)
-
-    return red_mask, green_mask
+    return mask_for(lab, calib, 'red'), mask_for(lab, calib, 'green')
 
 
 def extract_bounding_box(mask: np.ndarray, min_area: int = 60, min_extent: float = 0.55) -> dict:
-    """Finds the largest connected blob in the mask and returns its box."""
-    from scipy import ndimage
-
-    if mask.sum() < min_area:
+    """2026-08-11 (research A2): largest blob via cv2.connectedComponentsWithStats —
+    native single pass with area/bbox in the stats table; replaces scipy.ndimage.label
+    plus a python-side reduction (scipy dependency dropped from this file entirely).
+    connectivity=4 matches scipy's default structure. Returned width/height keep the
+    old span-minus-one convention so every downstream threshold (MIN_SWERVE_HEIGHT,
+    REVERSE_HEIGHT, aspect, safe lines) is numerically untouched."""
+    if int(mask.sum()) < min_area:
         return None
-
-    labeled, n_components = ndimage.label(mask)
-    if n_components == 0:
+    n, _labels, stats, _cents = cv2.connectedComponentsWithStats(
+        mask.astype(np.uint8), connectivity=4)
+    if n <= 1:
         return None
-
-    sizes = ndimage.sum(mask, labeled, index=range(1, n_components + 1))
-    largest_label = int(np.argmax(sizes)) + 1
-    largest_size = sizes[largest_label - 1]
-
-    if largest_size < min_area:
+    areas = stats[1:, cv2.CC_STAT_AREA]
+    i = 1 + int(np.argmax(areas))
+    area = int(stats[i, cv2.CC_STAT_AREA])
+    if area < min_area:
         return None
-
-    rows, cols = np.where(labeled == largest_label)
-    x, y = int(cols.min()), int(rows.min())
-    w, h = int(cols.max() - x), int(rows.max() - y)
+    x = int(stats[i, cv2.CC_STAT_LEFT])
+    y = int(stats[i, cv2.CC_STAT_TOP])
+    tw = int(stats[i, cv2.CC_STAT_WIDTH])
+    th = int(stats[i, cv2.CC_STAT_HEIGHT])
+    w, h = tw - 1, th - 1
     if w < 6 or h < 6 or (w / max(h, 1)) > 6 or (h / max(w, 1)) > 6:
         return None
-
-    bbox_area = (w + 1) * (h + 1)
-    extent = largest_size / bbox_area
+    extent = area / (tw * th)
     if extent < min_extent:
         return None
-
     return {"x": x, "y": y, "width": w, "height": h,
             "center_x": x + w // 2, "center_y": y + h // 2}
 
 
 def process_frame(frame: np.ndarray, calib: dict, edge_margin: int = 6) -> tuple:
-    """Process a frame and detect red/green blocks."""
+    """Detect red/green blocks and (when calibrated) the magenta parking bay.
+    2026-08-11 (research B1 foundation): magenta rides the same LAB pipeline for free —
+    it is DATA ONLY downstream (MAG telemetry to the ESP32, which drives nothing from
+    it); the parking attempt-or-descope decision gets venue-real detectability first."""
     if frame is None or frame.size == 0:
-        return None, None
+        return None, None, None
 
     lab = rgb_to_lab(frame)
     red_mask, green_mask = get_masks(lab, calib)
+    mag_mask = mask_for(lab, calib, 'magenta')
 
     if edge_margin > 0:
-        red_mask[:edge_margin, :] = False
-        red_mask[-edge_margin:, :] = False
-        red_mask[:, :edge_margin] = False
-        red_mask[:, -edge_margin:] = False
-        green_mask[:edge_margin, :] = False
-        green_mask[-edge_margin:, :] = False
-        green_mask[:, :edge_margin] = False
-        green_mask[:, -edge_margin:] = False
+        for m in (red_mask, green_mask, mag_mask):
+            m[:edge_margin, :] = False
+            m[-edge_margin:, :] = False
+            m[:, :edge_margin] = False
+            m[:, -edge_margin:] = False
 
     red_box = extract_bounding_box(red_mask)
     green_box = extract_bounding_box(green_mask)
-    return red_box, green_box
+    mag_box = extract_bounding_box(mag_mask) if 'magenta' in calib else None
+    return red_box, green_box, mag_box
 
 
 def upscale_for_display(frame_bgr: np.ndarray, scale: int = 3) -> np.ndarray:
@@ -127,7 +145,7 @@ def upscale_for_display(frame_bgr: np.ndarray, scale: int = 3) -> np.ndarray:
     return cv2.resize(frame_bgr, (w * scale, h * scale), interpolation=cv2.INTER_NEAREST)
 
 
-def draw_boxes(frame_bgr: np.ndarray, red_box: dict, green_box: dict, roi: tuple = None) -> np.ndarray:
+def draw_boxes(frame_bgr: np.ndarray, red_box: dict, green_box: dict, roi: tuple = None, mag_box: dict = None) -> np.ndarray:
     out = frame_bgr.copy()
 
     if roi is not None:
@@ -157,6 +175,11 @@ def draw_boxes(frame_bgr: np.ndarray, red_box: dict, green_box: dict, roi: tuple
         label2 = f"pos=({x},{y}) center=({cx},{cy})"
         cv2.putText(out, label1, (x, max(0, y - 22)), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 0), 1)
         cv2.putText(out, label2, (x, max(0, y - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1)
+
+    if mag_box:
+        x, y, w, h = mag_box['x'], mag_box['y'], mag_box['width'], mag_box['height']
+        cv2.rectangle(out, (x, y), (x + w, y + h), (255, 0, 255), 2)
+        cv2.putText(out, f"MAG {w}x{h}px", (x, max(0, y - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 0, 255), 1)
 
     return out
 
@@ -195,13 +218,15 @@ def run_calibration_session(get_frame, roi: tuple, window_name: str, initial: di
     """Interactive calibration session. `initial` (e.g. a saved calib.json) is the starting
     calibration: press Q to keep it, or resample to replace it."""
     MAX_SAMPLES = 6
-    samples = {'red': deque(maxlen=MAX_SAMPLES), 'green': deque(maxlen=MAX_SAMPLES)}
+    samples = {'red': deque(maxlen=MAX_SAMPLES), 'green': deque(maxlen=MAX_SAMPLES), 'magenta': deque(maxlen=MAX_SAMPLES)}
     calib = dict(initial) if initial else {}
+    calib['space'] = 'cv2lab_u8'   # 2026-08-11: all values in OpenCV 8-bit LAB from here on
 
     print("\n=== CALIBRATION SESSION ===")
     print("Tip: let the camera's auto-exposure settle for a second before sampling.")
     print("Hold the RED block inside the cyan box, press 1 to sample (3-4x, moving it slightly).")
     print("Hold the GREEN block inside the cyan box, press 2 to sample (3-4x).")
+    print("OPTIONAL: hold the MAGENTA parking marker in the box, press 3 to sample (parking research).")
     print("Press N when satisfied with both, or R to clear the last color's samples.")
     print("Press Q to abort calibration.\n")
 
@@ -214,15 +239,15 @@ def run_calibration_session(get_frame, roi: tuple, window_name: str, initial: di
         if frame is None:
             continue
 
-        red_box, green_box = (None, None)
+        red_box, green_box, mag_box = (None, None, None)
         if calib:
-            red_box, green_box = process_frame(frame, calib)
+            red_box, green_box, mag_box = process_frame(frame, calib)
 
         bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        display = draw_boxes(bgr, red_box, green_box, roi=roi)
+        display = draw_boxes(bgr, red_box, green_box, roi=roi, mag_box=mag_box)
         display = upscale_for_display(display, scale=3)
-        status = (f"RED samples:{len(samples['red'])} GREEN samples:{len(samples['green'])} | "
-                  f"1=sample RED  2=sample GREEN  N=done  Q=abort")
+        status = (f"RED:{len(samples['red'])} GREEN:{len(samples['green'])} MAG:{len(samples['magenta'])} | "
+                  f"1=RED 2=GREEN 3=MAG  N=done  Q=abort")
         cv2.putText(display, status, (5, display.shape[0] - 8),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
         cv2.imshow(window_name, display)
@@ -246,6 +271,14 @@ def run_calibration_session(get_frame, roi: tuple, window_name: str, initial: di
             print(f"Sampled GREEN ({len(samples['green'])}/{MAX_SAMPLES}) -> "
                   f"a_center={calib['green']['a_center']:.1f} b_center={calib['green']['b_center']:.1f} "
                   f"tol={calib['green']['tol']:.1f} l_min={calib['green']['l_min']:.1f}")
+        elif key == ord('3') and (now - last_sample_time) > debounce_s:
+            samples['magenta'].append(sample_roi_lab(frame, roi))
+            calib['magenta'] = calibrate_color(list(samples['magenta']))
+            last_color = 'magenta'
+            last_sample_time = now
+            print(f"Sampled MAGENTA ({len(samples['magenta'])}/{MAX_SAMPLES}) -> "
+                  f"a_center={calib['magenta']['a_center']:.1f} b_center={calib['magenta']['b_center']:.1f} "
+                  f"tol={calib['magenta']['tol']:.1f} l_min={calib['magenta']['l_min']:.1f}")
         elif key == ord('r') and last_color:
             samples[last_color].clear()
             calib.pop(last_color, None)
@@ -356,6 +389,9 @@ def set_manual_camera_controls(camera_id: int, exposure_value: int = 500,
         ['v4l2-ctl', '-d', dev, '-c', f'exposure_time_absolute={exposure_value}'],
         ['v4l2-ctl', '-d', dev, '-c', 'white_balance_automatic=0'],
         ['v4l2-ctl', '-d', dev, '-c', f'white_balance_temperature={wb_temperature}'],
+        # 2026-08-11 (research A8): 1 = 50 Hz anti-flicker — Indian venues; belt-and-
+        # suspenders on top of the 50 ms flicker-safe exposure already locked above.
+        ['v4l2-ctl', '-d', dev, '-c', 'power_line_frequency=1'],
     ]
     for cmd in cmds:
         try:
@@ -389,6 +425,10 @@ def load_calib(path: str):
     try:
         with open(path) as f:
             calib = json.load(f)
+        if calib and calib.get('space') != 'cv2lab_u8':
+            calib = migrate_calib_to_u8(calib)
+            log.info("[calib] legacy float-LAB file detected — migrated to cv2lab_u8 "
+                     "(a,b +128; l_min x255/100; tol unchanged)")
         print(f"Loaded calibration from {path}: {list(calib.keys())}")
         return calib
     except Exception as e:
@@ -446,24 +486,103 @@ def kalman_update(kf, box, initialized: bool):
         }
         return smoothed, initialized
 
+log = logging.getLogger("round2")
+
+
+def setup_logging(logdir: str) -> str:
+    """2026-08-11 (fix #5): every run now writes a timestamped full-stack log — the Pi's
+    per-frame decisions, every command sent to the ESP32 ([TX]), and the ESP32's own
+    telemetry ([ESP]), which has been narrated over this same USB serial since day one
+    with nothing ever reading it. Always on: no mat or race run is ever unrecorded again."""
+    os.makedirs(logdir, exist_ok=True)
+    path = os.path.join(logdir, time.strftime("run_%Y%m%d_%H%M%S.log"))
+    fmt = logging.Formatter("%(asctime)s.%(msecs)03d %(message)s", datefmt="%H:%M:%S")
+    fh = logging.FileHandler(path)
+    fh.setFormatter(fmt)
+    sh = logging.StreamHandler()
+    sh.setFormatter(fmt)
+    log.setLevel(logging.INFO)
+    log.addHandler(fh)
+    log.addHandler(sh)
+    log.info(f"=== round2 run log: {path} ===")
+    return path
+
+
+def open_serial(headless: bool, retries: int = 30, wait_s: float = 1.0):
+    """2026-08-11 (fix #1): '/dev/ttyUSB0' was hardcoded, and a failed open only printed a
+    warning and carried on — the race-day failure mode was a USB re-enumeration leaving
+    the Pi detecting pillars and commanding nobody. Now: stable /dev/serial/by-id/ paths
+    are preferred, the open retries for ~`retries` seconds, and headless (race) mode
+    HARD-FAILS rather than run without the ESP32. GUI mode keeps warn-and-continue —
+    bench calibration legitimately runs with no robot attached."""
+    for attempt in range(1, retries + 1):
+        candidates = sorted(glob.glob('/dev/serial/by-id/*')) + ['/dev/ttyUSB0', '/dev/ttyUSB1', '/dev/ttyACM0']
+        for dev in candidates:
+            try:
+                ser = serial.Serial(dev, 115200, timeout=1)
+                log.info(f"Serial open on {dev} (attempt {attempt})")
+                return ser
+            except Exception:
+                continue
+        log.warning(f"Serial: no port found (attempt {attempt}/{retries})")
+        time.sleep(wait_s)
+    if headless:
+        log.error(f"FATAL: no serial port after {retries} attempts — refusing to run headless without the ESP32.")
+        sys.exit(2)
+    log.warning("Continuing WITHOUT serial — GUI/bench mode only, no commands will reach the robot.")
+    return None
+
+
+def make_sender(ser):
+    """Wraps ser.write so every command is mirrored into the run log with a [TX] stamp —
+    causality between what the Pi saw and what it commanded is reconstructable per line."""
+    def send(msg: bytes):
+        if ser is None:
+            return
+        try:
+            ser.write(msg)
+            log.info("[TX] " + msg.decode(errors="replace").strip())
+        except Exception as e:
+            log.error(f"[TX-FAIL] {msg!r}: {e}")
+    return send
+
+
+def start_esp_log_thread(ser):
+    """Drains the ESP32's telemetry (same USB serial, previously discarded unread) into
+    the run log as [ESP] lines — [turn] n/12, MODE telemetry, [stop] markers."""
+    stop = threading.Event()
+
+    def rx():
+        while not stop.is_set():
+            try:
+                line = ser.readline()
+                if line:
+                    log.info("[ESP] " + line.decode(errors="replace").strip())
+            except Exception:
+                time.sleep(0.2)
+
+    t = threading.Thread(target=rx, daemon=True)
+    t.start()
+    return stop
+
+
 def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
-         calib_path: str = "calib.json"):
+         calib_path: str = "calib.json", logdir: str = "logs"):
     """Main function with improved camera handling.
 
     headless=True is the race-day mode: no cv2 UI at all (the field has no monitor and
     rule 9.9 forbids calibrating at round start) — calibration comes from calib_path,
     written earlier by a GUI session during check time."""
 
+    setup_logging(logdir)
+
     # --- Lock exposure/white balance before opening the stream ---
     set_manual_camera_controls(camera_id, exposure_value=500, wb_temperature=4500)
 
     # --- Serial connection to ESP32 ---
-    try:
-        ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
-        print("Serial port opened")
-    except Exception as e:
-        print(f"Could not open serial port: {e}")
-        ser = None
+    ser = open_serial(headless)
+    send = make_sender(ser)
+    esp_log_stop = start_esp_log_thread(ser) if ser is not None else None
 
     # --- Open camera ---
     container, stream = open_camera(camera_id)
@@ -507,8 +626,8 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
 
     if headless:
         if 'red' not in saved or 'green' not in saved:
-            print(f"ERROR: headless mode needs a calibration file with both colors at {calib_path}.")
-            print("Run once WITHOUT --headless during check time to calibrate and save it.")
+            log.error(f"headless mode needs a calibration file with both colors at {calib_path}.")
+            log.error("Run once WITHOUT --headless during check time to calibrate and save it.")
             stop_flag.set()
             t.join(timeout=2.0)
             container.close()
@@ -525,10 +644,13 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
         print("=== LIVE DETECTION ===")
         print("Press C to recalibrate, Q to quit.\n")
 
+    log.info("[calib] " + json.dumps(calib))   # calibration provenance lands in every run log
+
     history_len = 7
     required = 5
     red_hist = deque(maxlen=history_len)
     green_hist = deque(maxlen=history_len)
+    mag_hist = deque(maxlen=history_len)
 
     # --- Single Kalman filter for whichever color is currently tracked ---
     kf = create_kalman_filter()
@@ -540,7 +662,11 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
     clear_counter = 0      
     CLEAR_HISTORY = 10
     last_reverse_send = 0.0    # rate-limit REVERSE to 10 Hz instead of every frame
+    last_mag_send = 0.0        # rate-limit MAG telemetry to 5 Hz (data only, drives nothing)
     last_state_keepalive = 0.0 # re-send RED/GREEN every 0.5 s (feeds the ESP32 1.5 s dead-man)
+
+    perf_times = deque(maxlen=101)  # 2026-08-11 (fix #8): measure before optimizing —
+    proc_ms = deque(maxlen=100)     # effective fps + frame-processing cost, logged every 100 frames
 
     try:
         while True:
@@ -548,12 +674,16 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
             if frame is None:
                 continue
 
-            red_box, green_box = process_frame(frame, calib)
+            _t0 = time.monotonic()
+            red_box, green_box, mag_box = process_frame(frame, calib)
+            proc_ms.append((time.monotonic() - _t0) * 1000.0)
             red_hist.append(red_box)
             green_hist.append(green_box)
+            mag_hist.append(mag_box)
 
             red_confirmed = sum(b is not None for b in red_hist) >= required
             green_confirmed = sum(b is not None for b in green_hist) >= required
+            mag_confirmed = sum(b is not None for b in mag_hist) >= required
 
 
             current_detection = None
@@ -602,9 +732,8 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
                     too_close = True
                     now_t = time.monotonic()
                     if ser is not None and (now_t - last_reverse_send) >= 0.1:
-                        ser.write(b'REVERSE\n')
+                        send(b'REVERSE\n')
                         last_reverse_send = now_t
-                        print(">>> Sent REVERSE (too close)")
                     current_detection = None   # skip normal command this frame
                 else:
                     if primary_color == 'red':
@@ -645,14 +774,11 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
                     pass
                 else:
                     if current_detection == 'red':
-                        ser.write(b'RED\n')
-                        print(">>> Sent RED")
+                        send(b'RED\n')
                     elif current_detection == 'green':
-                        ser.write(b'GREEN\n')
-                        print(">>> Sent GREEN")
+                        send(b'GREEN\n')
                     else:
-                        ser.write(b'CLEAR\n')
-                        print(">>> Sent CLEAR")
+                        send(b'CLEAR\n')
                     last_sent = current_detection
                     last_state_keepalive = time.monotonic()
 
@@ -661,21 +787,31 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
             if current_detection is not None and current_detection == last_sent and ser is not None:
                 now_t = time.monotonic()
                 if now_t - last_state_keepalive >= 0.5:
-                    ser.write(b'RED\n' if current_detection == 'red' else b'GREEN\n')
+                    send(b'RED\n' if current_detection == 'red' else b'GREEN\n')
                     last_state_keepalive = now_t
 
             # POS stream: while tracking, send the (Kalman-smoothed) block position every
             # frame — this drives the ESP32's gradient steering and doubles as a keepalive.
             if current_detection is not None and active_box is not None and ser is not None:
                 cx = smoothed['center_x'] if smoothed is not None else active_box['center_x']
-                ser.write(f"POS,{int(cx)},{int(active_box['height'])}\n".encode())
+                send(f"POS,{int(cx)},{int(active_box['height'])}\n".encode())
+
+            # 2026-08-11 (research B1 foundation): magenta bay telemetry — the ESP32
+            # logs [mag] sightings and drives NOTHING from them. Wednesday's mat run
+            # answers "can we even see the bay reliably" before any parking code exists.
+            if mag_confirmed and mag_box is not None and ser is not None:
+                now_t = time.monotonic()
+                if now_t - last_mag_send >= 0.2:
+                    send(f"MAG,{int(mag_box['center_x'])},{int(mag_box['height'])}\n".encode())
+                    last_mag_send = now_t
 
             # Display (GUI mode only — headless does zero cv2 UI work)
             display_red = red_box if red_confirmed else None
             display_green = green_box if green_confirmed else None
+            display_mag = mag_box if mag_confirmed else None
             if not headless:
                 bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                display = draw_boxes(bgr, display_red, display_green)
+                display = draw_boxes(bgr, display_red, display_green, mag_box=display_mag)
 
                 cv2.line(display, (LEFT_SIDE_MAX, 0), (LEFT_SIDE_MAX, frame_size-1), (0, 165, 255), 1)
                 cv2.putText(display, "RED SAFE <", (2, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 165, 255), 1)
@@ -687,6 +823,12 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
 
                 cv2.imshow(window_name, upscale_for_display(display, scale=3))
             frame_count += 1
+            perf_times.append(time.monotonic())
+            if frame_count % 100 == 0 and len(perf_times) >= 2:
+                _span = perf_times[-1] - perf_times[0]
+                if _span > 0:
+                    log.info(f"[perf] eff_fps={(len(perf_times) - 1) / _span:.1f} "
+                             f"proc_ms_avg={sum(proc_ms) / max(len(proc_ms), 1):.1f}")
             red_str = (f"RED[x={display_red['x']}px, y={display_red['y']}px, "
                         f"w={display_red['width']}px, h={display_red['height']}px, "
                         f"center=({display_red['center_x']}px, {display_red['center_y']}px)]"
@@ -701,7 +843,7 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
                              f"vx={smoothed['vx']:.1f},vy={smoothed['vy']:.1f}]"
                              if smoothed is not None else "SMOOTHED:None")
 
-            print(f"Frame {frame_count} | {red_str} | {green_str} | {smoothed_str}", flush=True)
+            log.info(f"Frame {frame_count} | {red_str} | {green_str} | {smoothed_str}")
 
             if not headless:
                 key = cv2.waitKey(1) & 0xFF
@@ -722,6 +864,8 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
     except KeyboardInterrupt:
         pass
     finally:
+        if esp_log_stop is not None:
+            esp_log_stop.set()
         stop_flag.set()
         t.join(timeout=2.0)
         container.close()
@@ -729,9 +873,9 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
             ser.close()
         if not headless:
             cv2.destroyAllWindows()
-        print("\nFinal calibration used:")
+        log.info("Final calibration used:")
         for color, c in calib.items():
-            print(f"  {color}: {c}")
+            log.info(f"  {color}: {c}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="WRO Round 2 block detector")
@@ -739,5 +883,7 @@ if __name__ == "__main__":
                         help="race-day mode: no cv2 UI, calibration loaded from --calib")
     parser.add_argument("--calib", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "calib.json"),
                         help="path to the calibration JSON (default: calib.json next to this script)")
+    parser.add_argument("--logdir", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs"),
+                        help="directory for run logs (always on; default: logs/ next to this script)")
     args = parser.parse_args()
-    main(camera_id=0, frame_size=240, headless=args.headless, calib_path=args.calib)
+    main(camera_id=0, frame_size=240, headless=args.headless, calib_path=args.calib, logdir=args.logdir)
