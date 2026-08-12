@@ -185,37 +185,52 @@ calibrated status rather than on a fixed startup delay.
 | BNO055 loses magnetometer calibration mid-run | Calibration status register drops | Not yet implemented — planned; degrade to last-good target heading rather than to a bad one |
 | Detector process dies | No pass-side call arrives | **Handled by architecture** — steering continues on last heading target (R7) |
 | Detector reports low confidence | Confidence below 0.45 | **Handled** — hold course, which is recoverable |
-| Servo stall current drawn through the ESP32's 5 V chain (as wired: pack -> buck -> ESP32 -> servo) | ESP32 brownout / reset under steering load | Not yet implemented — planned dedicated servo rail; the §6 stall measurement sizes it |
+| Servo stall current drawn through the ESP32's 5 V chain (as wired 2026-08-06: pack -> buck -> ESP32 -> servo) | ESP32 brownout / reset under steering load | **FIXED by rework, confirmed on the vehicle 2026-08-11** — servo power now comes from Buck-2 directly, signal only from the ESP32; see §6 and `schemes/circuit_diagram_complete_2026-08-11.jpg` |
 | Pi 5 undervoltage — its 5 V / 5 A requirement fed from the shared 3S pack through a regulator of unconfirmed rating | Pi throttle flag / lightning-bolt, SD corruption risk | Not yet implemented — verify the regulator rating before any sustained run |
 
-**Five of these seven are unimplemented and are named as such.** Per-sensor health
+**Five of these seven were unimplemented when first written (2026-08-06). The
+servo-rail item was closed by hardware rework confirmed 2026-08-11; four remain
+unimplemented and are named as such.** Per-sensor health
 status is a known gap, not an oversight.
 
 ---
 
 ## 6. Power budget
 
-**Not yet measured, and deliberately not estimated.**
+**Not yet measured. Predicted from datasheets 2026-08-11 — see
+[2a — Predicted power budget](2_power_predicted_budget.md), whose measured
+column stays empty until the multimeter session.** (This section previously
+said "deliberately not estimated"; superseded by the cited prediction, which
+exists to give the measurement session sanity bands, not to replace it.)
 
-**Pack read off the hardware (2026-08-06): 3S Li-Po, 11.1 V nominal, 2600 mAh,
-DC-jack output.** The N20's spec is on record in
+**Pack label re-read 2026-08-11: 3S Li-Po, 11.1 V nominal, 2200 mAh, 60C.**
+(The 2026-08-06 note recorded 2600 mAh — that was a misread; 2200 is what is
+printed on the pack.) The N20's spec is on record in
 [1 — Mobility](1_mobility.md#drive--n20-via-tb6612-chosen-2026-08-01-integrated-2026-08-03)
 (datasheet-class: 0.75 A stall). The blocking unknowns are gone: every row
 below is measurable with a multimeter today.
 
-Power tree as wired (2026-08-06): pack -> buck converter -> ESP32 -> servo —
-the servo draws through the ESP32's 5 V chain, a named failure point in §5 —
-and the Pi 5 runs from the **same pack** through a regulator whose rating is
-unconfirmed against the Pi 5's 5 V / 5 A requirement. There is currently **no
-main power switch, no start button, and no fuse** — and the first two are
-**mandatory, not optional**: §9.6 requires the vehicle placed in the start zone
-switched OFF, §9.10 allows exactly ONE switch to power it on, and §9.11
-requires it to then WAIT for exactly ONE start button, pressed on the judge's
-"Go" (§9.13–9.14). Current firmware auto-starts after boot, which violates the
-waiting-state requirement — a wait-for-start-button state is needed in both
-round programs, plus the physical switch and button. The fuse is good
-practice rather than a rule; its rating follows from the stall currents
-measured below.
+Power tree as built, traced on the vehicle 2026-08-11 (supersedes the
+2026-08-06 description; full diagram:
+`schemes/circuit_diagram_complete_2026-08-11.jpg`): pack -> fast-charging
+module -> **Pi 5**; ESP32 from a **Pi USB port**; pack -> **Buck-2** -> 3x
+TF-Luna + **servo power** (servo signal only from the ESP32 — the §5
+servo-through-ESP32-chain failure point is FIXED by this rework); pack ->
+TB6612 VM -> N20. The Pi-regulator rating question from §5 still stands:
+the fast-charging module's ability to hold the Pi 5's 5 V / 5 A requirement
+is unverified.
+
+Switch and start button, status 2026-08-11: **a wait-for-start state now
+exists** — the Round 2 firmware waits on an **external start button on GPIO32**
+(polarity bench-check pending; the Round 1 wait-for-start on `ethan-dev`
+needs the same pin fix). There is still **no main power switch** — power-on is
+currently plugging in the battery — and §9.6/§9.10 make exactly one power
+switch **mandatory, not optional**: §9.6 requires the vehicle placed in the
+start zone switched OFF, §9.10 allows exactly ONE switch to power it on, and
+§9.11 requires it to then WAIT for exactly ONE start button, pressed on the
+judge's "Go" (§9.13–9.14). An inline rocker on the pack lead is planned before
+Nationals. The fuse is good practice rather than a rule; its rating follows
+from the stall currents measured below.
 
 What will be measured, per rail (the drivetrain now exists — nothing blocks this):
 

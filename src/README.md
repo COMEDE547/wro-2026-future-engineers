@@ -32,7 +32,7 @@ see [`docs/1_mobility.md`](../docs/1_mobility.md).
 
 | Path | Role |
 |---|---|
-| `round2.py` | **Pi 5 flight script.** Calibrated-Lab colour picker (venue calibration via `--calib` → `calib.json`), PyAV camera capture with v4l2 exposure/white-balance lock, temporal vote gate, and the serial command stream to the ESP32 (`RED`/`GREEN`/`CLEAR`/`REVERSE`/`POS,cx,h` on `/dev/ttyUSB0` @ 115200, refreshed every 0.5 s against the controller's 1.5 s dead-man). |
+| `round2.py` | **Pi 5 flight script.** Calibrated-Lab colour picker (venue calibration via `--calib` → `calib.json`), PyAV camera capture with v4l2 exposure/white-balance lock, temporal vote gate, and the serial command stream to the ESP32 (`RED`/`GREEN`/`CLEAR`/`REVERSE`/`POS,cx,h` on a stable `/dev/serial/by-id/*` path (`ttyUSB*`/`ttyACM*` fallback; headless mode exits hard with code 2 if no port opens — changed 2026-08-11) @ 115200, refreshed every 0.5 s against the controller's 1.5 s dead-man). |
 | `main.cpp` | **ESP32 obstacle controller.** Heading capture at the start button, IMUPLUS yaw, PD steering with deadband and clamp, persist-gated corner spikes, visual-servo swerve on the Pi's command stream. Center/limits aligned to the Round-1 mat tune 2026-08-10 — bench-verify before flashing. |
 | `eval_picker.py` | Measurement harness — imports `round2.py`'s detection functions verbatim (serial/camera stubbed) and re-derives the picker tables in [`docs/eval_raw/`](../docs/eval_raw). |
 | `history/` | Prior code lineages, retained as iteration evidence. |

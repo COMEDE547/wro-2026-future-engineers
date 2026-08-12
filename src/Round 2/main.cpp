@@ -6,6 +6,7 @@
 #endif
 #include <Adafruit_BNO055.h>
 #include <ESP32Servo.h>
+#include <esp_task_wdt.h>   // 2026-08-11 (research A5): task watchdog — see setup()
 
 #define SERVO_PIN 13
 
@@ -14,7 +15,10 @@
 #define MOTOR_PWM  33
 #define MOTOR_STBY 27        // TB6612 STBY: driven HIGH; harmless if STBY is hardwired high on the breakout
 
-#define START_BUTTON_PIN 0   // onboard BOOT button; move to external button pin when mounted (rules 9.10-9.11)
+#define START_BUTTON_PIN 32  // 2026-08-11: EXTERNAL start button on GPIO32 (per Ethan, supersedes onboard BOOT).
+                             // Wiring assumption: button to GND, active LOW with internal pullup — matches the
+                             // WAIT_FOR_START read below. BENCH-VERIFY: if the bot starts instantly or never,
+                             // the button is wired to 3V3 instead — invert the digitalRead logic. (rules 9.10-9.11)
 
 #define MUX_CH_LEFT   0
 #define MUX_CH_CENTER 1  
@@ -28,6 +32,14 @@ int STRAIGHT_SPEED = 100;  // Cruise speed for driving straight (0-255)
 int TURN_SPEED     = 100;  // Controlled speed for turning to prevent overshooting
 int BACKWARD_SPEED = -100; // Speed for backing up (if needed)
 
+// 2026-08-11 (research A4, MAT-TUNE): speed scheduling. Fast tier engages ONLY on a
+// provably clear straight: heading settled, center Luna far, no turn cooldown, not
+// avoiding. Conservative first-Nationals values; KILL SWITCH = set FAST_SPEED equal
+// to STRAIGHT_SPEED and behavior is byte-identical to the single-speed build.
+int   FAST_SPEED            = 130;   // clear-straight cruise (0-255)
+const int   FAST_MIN_CENTER_CM  = 120;   // center Luna must see at least this much runway
+const float FAST_MAX_HEADING_ERR = 4.0;  // deg — heading must be settled before speeding up
+
 
 int SERVO_CENTER   = 106;   // Dead-center steering alignment — aligned 2026-08-10 to Round 1's mat-tuned value (58adb1c); same physical linkage, chassis final
 int SERVO_MAX_LEFT  = 136;  // Physical linkage limit, higher-angle side (asymmetric about center: +30)
@@ -38,6 +50,14 @@ int DIFF = 42;              // Visual-swerve offset cap = the larger center-to-l
                             // 64/136 window (106+35=141 would command past the linkage). NOT yet mat-tested
                             // at these values: bench-verify steering direction (INVERT_STEERING) and center
                             // before flashing for a run.
+                            // 2026-08-11: AUTHORITY ASYMMETRY (accepted + documented, no code change):
+                            // center 106 sits off-middle of the 64..136 linkage window, so one avoidance
+                            // side commands up to 42° of swerve while the other physically caps at 30° —
+                            // those passes arc ~40% wider. No software fix exists (the linkage window is
+                            // physical); if the mat shows clipping on the weak side, compensate by
+                            // triggering that side's avoidance earlier on the Pi (safe-line/height
+                            // thresholds), NOT by moving SERVO_CENTER — 106 is the mat-tuned
+                            // straight-tracking value.
 
 // Change to true if your steering corrections move backwards during testing
 const bool INVERT_STEERING = true;
@@ -55,7 +75,14 @@ const unsigned long TURN_COOLDOWN_MS = 300; // tune this — how long to ignore 
 const int SPIKE_PERSIST_LOOPS = 5;     // corner spike must hold this many consecutive loops (rejects pillar occlusion)
 
 // gradient visual steering (tune on mat)
-const float KV_VISUAL = 0.28f;         // deg of steer per px of visual error
+// 2026-08-11 (research A3, MAT-TUNE): per-color visual gains replace the single
+// KV_VISUAL. Under the current config (INVERT_STEERING=true, center 106 in 64..136),
+// RED avoidance steers toward the +30 side — 40% less physical authority than
+// GREEN's -42 side — so red passes arced wider. RED's gain starts 1.2x as the mat-tune
+// candidate; GREEN keeps the field-proven 0.28. RE-DERIVE which color is the weak side
+// if INVERT_STEERING or SERVO_CENTER ever changes.
+const float KV_VISUAL_RED   = 0.34f;   // deg of steer per px — weak (+30) side, boosted
+const float KV_VISUAL_GREEN = 0.28f;   // deg of steer per px — strong (-42) side, unchanged
 const int   MIN_ACTIVE_SWERVE = 8;     // deg floor while error > 0, guarantees progress
 const int   SAFE_RED_X   = 90;         // block safe when cx <= this (matches Pi LEFT_SIDE_MAX)
 const int   SAFE_GREEN_X = 150;        // block safe when cx >= this (matches Pi RIGHT_SIDE_MIN)
@@ -75,6 +102,10 @@ const unsigned long OBSTACLE_TIMEOUT_MS = 1500; // dead-man: auto-clear if no co
 unsigned long lastReverseCmd = 0;  // last time a REVERSE arrived
 int lastPosX = -1;                 // latest block center-x from the Pi POS stream (0..239)
 unsigned long lastPosMs = 0;       // when it arrived; 0 = none received this avoidance
+unsigned long avoidStartMs = 0;    // 2026-08-11: when this avoidance began — bounds the blind full-lock fallback
+int lastMagX = -1;                 // 2026-08-11 (research B1 foundation): magenta bay telemetry —
+int lastMagH = -1;                 // stored + logged only, drives NOTHING until a parking
+unsigned long lastMagMs = 0;       // controller exists and has passed a mat gate
 
 float straightTargetHeading = 0.0;
 float turnTargetHeading     = 0.0;
@@ -112,6 +143,29 @@ int16_t getLunaDistance(uint8_t channel) {
   return -1;
 }
 
+
+// 2026-08-11: TF-Luna emits 0 on signal loss and junk on bad reads — both previously
+// passed the old (== -1) check. A Luna stuck at 0 for SPIKE_PERSIST_LOOPS loops faked a
+// ±180 cm corner spike (phantom turn => the whole 90° target chain corrupts). Field
+// diagonal is ~424 cm; anything outside 2..600 cm is not a real wall.
+bool lunaValid(int16_t d) { return d >= 2 && d <= 600; }
+
+// 2026-08-11 (research A6): median-of-3 per Luna channel — a single-frame 0/garbage
+// (black wall, glancing angle, I2C hiccup) is outvoted by its two neighbours instead
+// of reaching the spike logic; two-in-a-row still goes invalid and resets the streak
+// via lunaValid. Cost: ~1 loop (~20-30 ms) of extra corner-detection lag on top of the
+// 5-loop persistence — immaterial at these speeds.
+int16_t lunaMedian3(uint8_t idx, int16_t v) {
+  static int16_t h[3][3];
+  static uint8_t n[3], p[3];
+  h[idx][p[idx]] = v;
+  p[idx] = (uint8_t)((p[idx] + 1) % 3);
+  if (n[idx] < 3) { n[idx]++; return v; }
+  int16_t a = h[idx][0], b = h[idx][1], c = h[idx][2];
+  int16_t lo = min(a, min(b, c));
+  int16_t hi = max(a, max(b, c));
+  return (int16_t)((int32_t)a + b + c - lo - hi);
+}
 
 float getCurrentHeading() {
   selectMuxChannel(MUX_CH_BNO);
@@ -193,7 +247,10 @@ void checkObstacles() {
   static int lastSpikeDir = 0;   // +1 = left-turn spike, -1 = right-turn spike
 
   if (millis() < turnCooldownUntil) { spikeCount = 0; return; }
-  if (currentLeftDist == -1 || currentRightDist == -1) return;
+  // 2026-08-11: invalid now includes 0/garbage (lunaValid), and an invalid frame RESETS
+  // the persistence streak — a phantom turn is catastrophic, a corner confirmed one
+  // frame later is not (the spike persists the whole time the corner is actually there).
+  if (!lunaValid(currentLeftDist) || !lunaValid(currentRightDist)) { spikeCount = 0; return; }
 
   int16_t difference = currentLeftDist - currentRightDist;
 
@@ -238,6 +295,15 @@ void avoidObstacle() {
   // pass-side safe line in the Pi's 240-px frame. The old binary full-lock swerve is the
   // saturation clamp of this law (large error => offset = DIFF => identical behavior).
   if (lastPosMs == 0) {
+    // 2026-08-11: the blind full lock is now bounded. If POS never arrives within 600 ms
+    // (tracker flicker), a committed max-deflection arc must not ride the 1.5 s dead-man
+    // into a wall — relax toward center at ~2°/loop and let CLEAR/dead-man exit the state.
+    if (millis() - avoidStartMs > 600) {
+      if      (finalServoAngle > SERVO_CENTER) finalServoAngle = max(SERVO_CENTER, finalServoAngle - 2);
+      else if (finalServoAngle < SERVO_CENTER) finalServoAngle = min(SERVO_CENTER, finalServoAngle + 2);
+      steeringServo.write(finalServoAngle);
+      return;
+    }
     // No POS received this avoidance yet — fall back to the field-proven full lock.
     int swerveAngle;
     if (avoidDirectionRight) {
@@ -251,7 +317,15 @@ void avoidObstacle() {
   }
 
   if (millis() - lastPosMs > 300) {
-    // POS stream stale — hold the last commanded angle (no snap to center, no full lock).
+    // 2026-08-11 (MAT-UNVERIFIED): was a hard hold of the last swerve angle until the
+    // 1.5 s dead-man — up to ~1 s of blind committed arc after losing the block off-frame.
+    // Now: 300–500 ms stale = hold unchanged (short flicker rides through exactly as
+    // before); past 500 ms, relax toward center at ~2°/loop (~60°/s) so a genuinely lost
+    // target straightens out instead of arcing into a wall.
+    if (millis() - lastPosMs > 500) {
+      if      (finalServoAngle > SERVO_CENTER) finalServoAngle = max(SERVO_CENTER, finalServoAngle - 2);
+      else if (finalServoAngle < SERVO_CENTER) finalServoAngle = min(SERVO_CENTER, finalServoAngle + 2);
+    }
     steeringServo.write(finalServoAngle);
     return;
   }
@@ -262,7 +336,8 @@ void avoidObstacle() {
   } else {
     error = SAFE_GREEN_X - lastPosX;    // GREEN: push the block right of the green safe line
   }
-  int offset = constrain((int)(KV_VISUAL * error), 0, DIFF);
+  float kv = avoidDirectionRight ? KV_VISUAL_RED : KV_VISUAL_GREEN;
+  int offset = constrain((int)(kv * error), 0, DIFF);
   if (error > 0 && offset < MIN_ACTIVE_SWERVE) offset = MIN_ACTIVE_SWERVE;
 
   int swerveAngle;
@@ -280,7 +355,17 @@ void avoidObstacle() {
 
 
 void driveStraightMode(float currentHeading) {
-  setMotorOutput(STRAIGHT_SPEED);
+  // 2026-08-11 (research A4): fast tier on provably clear straights. Uses the PREVIOUS
+  // loop's headingError (one 20-30 ms loop of lag on the settled check — acceptable,
+  // and it avoids reordering this function). Drops back to STRAIGHT_SPEED the moment
+  // runway shortens, heading unsettles, or a turn cooldown is active; avoidance and
+  // turning never see the fast tier (their handlers set their own speeds).
+  int speed = STRAIGHT_SPEED;
+  if (lunaValid(currentCenterDist) && currentCenterDist > FAST_MIN_CENTER_CM &&
+      fabs(headingError) < FAST_MAX_HEADING_ERR && millis() > turnCooldownUntil) {
+    speed = FAST_SPEED;
+  }
+  setMotorOutput(speed);
 
   float rawError = straightTargetHeading - currentHeading;
   if (rawError > 180.0)  rawError -= 360.0;
@@ -345,6 +430,8 @@ void executeTurnMode(float currentHeading) {
 
   if (remainingAngle < 6.0) {
   totalTurnsCount++;
+  btPrint("[turn] "); btPrint(totalTurnsCount); btPrint("/"); btPrint(MAX_TURNS);
+  btPrint(" target="); btPrintln(turnTargetHeading);
   steeringServo.write(SERVO_CENTER);
   finalServoAngle = SERVO_CENTER;
   straightTargetHeading = turnTargetHeading;
@@ -423,12 +510,28 @@ void setup() {
 
   // Heading is NOT captured here — it is captured at the start-button press (WAIT_FOR_START),
   // after the robot has been placed on the mat.
+  // 2026-08-11 (research A5): task watchdog, 3 s. A hung I2C/mux read or serial stall
+  // now resets to WAIT_FOR_START (motors off) instead of freezing with the last motor
+  // command still live — a reset ends the run; a freeze ends it into a wall.
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
+  esp_task_wdt_config_t wdt_cfg = {};
+  wdt_cfg.timeout_ms = 3000;
+  wdt_cfg.idle_core_mask = 0;
+  wdt_cfg.trigger_panic = true;
+  esp_task_wdt_reconfigure(&wdt_cfg);   // core 3.x: framework already initialized the TWDT
+#else
+  esp_task_wdt_init(3, true);           // core 2.x signature
+#endif
+  esp_task_wdt_add(NULL);
+
   btPrintln("=== ROBOT READY - press START button ===");
-  btPrintln("Commands: RED, GREEN, CLEAR, REVERSE, POS");
+  btPrintln("Commands: RED, GREEN, CLEAR, REVERSE, POS, MAG");
 }
 
 
 void loop() {
+
+esp_task_wdt_reset();   // 2026-08-11: feed the watchdog first — covers every early-return branch
 
 static String serialBuffer = "";
 while (Serial.available()) {
@@ -441,11 +544,12 @@ while (Serial.available()) {
     //   CLEAR     : AVOIDING + REVERSING
     //   REVERSE   : STRAIGHT + AVOIDING + REVERSING
     //   POS,cx,h  : STRAIGHT + AVOIDING + REVERSING (tracking data)
+    //   MAG,cx,h  : any state (telemetry only — logged, never acted on)
     //   Everything is ignored during TURNING (never abort a corner), ROBOT_STOPPED
     //   (a post-finish detection must never restart the robot), and WAIT_FOR_START.
     if (serialBuffer == "RED") {
       if (currentState == DRIVING_STRAIGHT || currentState == OBSTACLE_AVOIDING) {
-        if (currentState == DRIVING_STRAIGHT) lastPosMs = 0;  // fresh pillar: full lock until first POS
+        if (currentState == DRIVING_STRAIGHT) { lastPosMs = 0; avoidStartMs = millis(); }  // fresh pillar: full lock until first POS
         avoidDirectionRight = true;
         currentState = OBSTACLE_AVOIDING;
         Serial.println("OBSTACLE: RED - steering right of the block");
@@ -454,7 +558,7 @@ while (Serial.available()) {
     } 
     else if (serialBuffer == "GREEN") {
       if (currentState == DRIVING_STRAIGHT || currentState == OBSTACLE_AVOIDING) {
-        if (currentState == DRIVING_STRAIGHT) lastPosMs = 0;  // fresh pillar: full lock until first POS
+        if (currentState == DRIVING_STRAIGHT) { lastPosMs = 0; avoidStartMs = millis(); }  // fresh pillar: full lock until first POS
         avoidDirectionRight = false;
         currentState = OBSTACLE_AVOIDING;
         Serial.println("OBSTACLE: GREEN - steering left of the block");
@@ -482,9 +586,40 @@ while (Serial.available()) {
       if (currentState == DRIVING_STRAIGHT || currentState == OBSTACLE_AVOIDING || currentState == REVERSING) {
         int c1 = serialBuffer.indexOf(',', 4);
         if (c1 > 4) {
-          lastPosX = serialBuffer.substring(4, c1).toInt();
-          lastPosMs = millis();
-          lastObstacleCmd = millis();   // the POS stream doubles as the keepalive
+          // 2026-08-11: corrupted digits used to toInt() to 0 = a hard-left position
+          // accepted as truth. Non-numeric tokens and cx outside the 0..239 frame are
+          // line noise and the whole message is dropped (lastPosMs not refreshed).
+          String tok = serialBuffer.substring(4, c1);
+          bool numeric = tok.length() > 0;
+          for (unsigned int i = 0; i < tok.length(); i++) { if (!isDigit(tok[i])) { numeric = false; break; } }
+          int cx = numeric ? tok.toInt() : -1;
+          if (numeric && cx <= 239) {
+            lastPosX = cx;
+            lastPosMs = millis();
+            lastObstacleCmd = millis();   // the POS stream doubles as the keepalive
+          }
+        }
+      }
+    }
+    else if (serialBuffer.startsWith("MAG,")) {
+      // 2026-08-11 (research B1 foundation): magenta bay sighting from the Pi —
+      // telemetry ONLY, accepted in every state precisely because it drives nothing.
+      // Rate-limited [mag] lines land in the run log; Wednesday answers "is the bay
+      // even reliably visible" before any parking controller is written.
+      int c1 = serialBuffer.indexOf(',', 4);
+      if (c1 > 4) {
+        String tok = serialBuffer.substring(4, c1);
+        bool numeric = tok.length() > 0;
+        for (unsigned int i = 0; i < tok.length(); i++) { if (!isDigit(tok[i])) { numeric = false; break; } }
+        if (numeric) {
+          lastMagX = tok.toInt();
+          lastMagH = serialBuffer.substring(c1 + 1).toInt();
+          lastMagMs = millis();
+          static unsigned long lastMagPrint = 0;
+          if (millis() - lastMagPrint >= 1000) {
+            lastMagPrint = millis();
+            btPrint("[mag] cx="); btPrint(lastMagX); btPrint(" h="); btPrintln(lastMagH);
+          }
         }
       }
     }
@@ -506,6 +641,15 @@ if ((currentState == OBSTACLE_AVOIDING || currentState == REVERSING) &&
   if (currentState == WAIT_FOR_START) {
     setMotorOutput(0);
     steeringServo.write(SERVO_CENTER);
+    // 2026-08-11 (research A7/B3): BNO055 IMUPLUS drift is fused-output drift — the
+    // Nerdvana raw-rate bias subtraction does not transplant. Instrument first: while
+    // the bot sits armed, log heading 1/s; Wednesday's logs characterize real drift
+    // for free. Correction gets written ONLY if the data shows >2-3 deg over 3 min.
+    static unsigned long lastDriftLog = 0;
+    if (millis() - lastDriftLog >= 1000) {
+      lastDriftLog = millis();
+      btPrint("[drift] heading="); btPrintln(getCurrentHeading());
+    }
     // Debounced start button (active LOW, 50 ms). Heading is captured HERE, with the
     // robot placed on the mat, so the reference frame is the field, not the workbench.
     static unsigned long pressStart = 0;
@@ -537,15 +681,22 @@ if ((currentState == OBSTACLE_AVOIDING || currentState == REVERSING) &&
   }
 
 
-  currentLeftDist   = getLunaDistance(MUX_CH_LEFT);
-  currentCenterDist = getLunaDistance(MUX_CH_CENTER);
-  currentRightDist  = getLunaDistance(MUX_CH_RIGHT);
+  currentLeftDist   = lunaMedian3(0, getLunaDistance(MUX_CH_LEFT));
+  currentCenterDist = lunaMedian3(1, getLunaDistance(MUX_CH_CENTER));
+  currentRightDist  = lunaMedian3(2, getLunaDistance(MUX_CH_RIGHT));
 
 
   float currentHeading = getSmoothedHeading();
 
 
-  if (totalTurnsCount >= MAX_TURNS && currentCenterDist > 0 && currentCenterDist < 165) {
+  // 2026-08-11: stop check now gated on DRIVING_STRAIGHT — it previously ran in every
+  // state, so after lap 3 a pillar at <165 cm (or a mid-swerve diagonal wall sighting)
+  // stopped the bot yawed, mid-avoidance, instead of settled on the final straight. A
+  // final-straight pillar is now avoided first; the wall stop fires after CLEAR.
+  if (currentState == DRIVING_STRAIGHT &&
+      totalTurnsCount >= MAX_TURNS && lunaValid(currentCenterDist) && currentCenterDist < 165) {
+    btPrint("[stop] turns="); btPrint(totalTurnsCount);
+    btPrint(" center_cm="); btPrintln(currentCenterDist);
     currentState = ROBOT_STOPPED;
     return;
   }
@@ -557,8 +708,22 @@ if ((currentState == OBSTACLE_AVOIDING || currentState == REVERSING) &&
   }
 
   else if (currentState == OBSTACLE_AVOIDING) {
-  avoidObstacle();
-}
+    // 2026-08-11 (MAT-UNVERIFIED): corner detection now stays armed during avoidance.
+    // Before this, a spike arriving mid-avoid was invisible — the bot kept visual-steering
+    // toward the corner wall until CLEAR (~0.5 s Pi debounce) plus a 5-loop re-arm. A
+    // corner turn taken beside a pillar risks brushing it (penalty); driving the corner
+    // wall ends the run — the turn is strictly the cheaper failure. Stepped targets keep
+    // the turn geometry correct from any swerved pose (the target derives from the leg
+    // reference heading, not the current heading). Mat test before trusting: pillar
+    // placed at a corner entry, both colors, both directions.
+    checkObstacles();
+    if (currentState == TURNING) {
+      lastPosMs = 0;   // corner cancels the avoidance handshake; Pi's CLEAR (ignored
+                       // during TURNING) resets its side while we execute the turn
+    } else {
+      avoidObstacle();
+    }
+  }
   else if (currentState == REVERSING) {
     setMotorOutput(BACKWARD_SPEED);
     steeringServo.write(SERVO_CENTER);
