@@ -70,6 +70,89 @@ Predicted: **runtime 1.4–2.2 h, ~25–40 runs/charge** (at 2200 mAh).
 | TB6612FNG | 3.3 V / VM | ICC ~1.1 mA; ~0.5 Ω total on-resistance | Toshiba TB6612FNG datasheet |
 | N20 12 V (variant TBD) | pack | 40–60 mA no-load; 0.75–1.1 A stall (variant-dependent; 100 rpm class assumed) | Sharvi N20-12V-100; Pololu 12 V HPCB analog |
 
+## Per-rail derivation (how the bands above were computed)
+
+The component table gives per-device figures at their own rail voltage. Getting
+from there to a pack current takes three steps per rail: sum the devices, convert
+to power, then divide by the pack voltage and the converter efficiency. Written
+out so the arithmetic can be checked rather than trusted.
+
+`I_pack = P_rail / (η × V_pack)` with **η = 0.88** and **V_pack = 11.1 V**, so
+the divisor is **9.77 W/A**. Nominal pack voltage is used deliberately, not the
+12.47 V measured at rest: a pack sitting at nominal is the conservative case,
+and it is the voltage the vehicle spends most of a run near.
+
+### Rail A — Buck-2 (5 V): servo power + 3× TF-Luna
+
+| State | 3× TF-Luna | MG90S | Rail total | P at 5 V | **I at pack** |
+|---|---|---|---|---|---|
+| Idle (servo centred, holding) | 210 mA | 10 mA | 220 mA | 1.10 W | **113 mA** |
+| Cruise (servo working the heading law) | 210 mA | 120–250 mA | 330–460 mA | 1.65–2.30 W | **169–235 mA** |
+| Transient (servo to a mechanical stop) | 450 mA | 700–800 mA | 1150–1250 mA | 5.75–6.25 W | **589–640 mA** |
+
+### Rail B — fast-charge module (5 V): Pi 5 + camera + ESP32
+
+The Pi is never idle in a scored run — `round2.py` is decoding MJPEG and running
+the picker from the moment it starts — so the 5–7 W vision figure is used for
+every row, not the 1.8–2.7 W idle figure. Using the idle number here would
+understate the dominant consumer on the vehicle.
+
+| Consumer | Power at 5 V |
+|---|---|
+| Pi 5 under vision load | 5.0–7.0 W |
+| Camera (200–220 mA) | 1.00–1.10 W |
+| ESP32, radios compile-gated off (40–80 mA) | 0.20–0.40 W |
+| **Rail total** | **6.20–8.50 W** → **635–870 mA at pack** |
+
+### Rail C — pack direct → TB6612 → N20
+
+The motor is PWM-chopped, so average pack current is `duty × I_motor`. At
+`DRIVE_SPEED 1000` the duty is ~98%, which is why this rail is close to its
+own DC figure — and why there is no headroom left as the pack sags.
+
+| State | I_motor | Duty | **I at pack** |
+|---|---|---|---|
+| Free-run, wheels off ground | 40–60 mA | 0.98 | **39–59 mA** |
+| Driving on the mat (loaded) | 150–300 mA | 0.98 | **147–294 mA** |
+| Stall (wall strike, wheels held) | 750–1100 mA | 0.98 | **735–1078 mA** |
+
+TB6612 losses are negligible at these currents: 1.1 mA quiescent, and ~0.5 Ω
+total on-resistance dissipates 0.045 W at 300 mA.
+
+### Roll-up
+
+| Condition | Rail A | Rail B | Rail C | **Total pack current** | Table row |
+|---|---|---|---|---|---|
+| Idle — system up, vision running, motor off | 113 mA | 635–870 mA | 0 | **0.75–0.98 A** | row 5 (0.7–1.0 A) |
+| Driving — heading law active, loaded motor | 169–235 mA | 635–870 mA | 147–294 mA | **0.95–1.40 A** | row 6 (0.8–1.3 A) |
+| Worst transient — servo to stop **and** motor stalled | 589–640 mA | 870 mA | 735–1078 mA | **2.19–2.59 A** | row 7 adder |
+
+The roll-up reproduces rows 5–7 within their stated bands, which is the point of
+writing it out: the bands are not assertions, they are the sum of nine sourced
+component figures and one efficiency assumption. **Replace η first** — it is the
+only unsourced number in the chain, and measuring `P_out/P_in` on Buck-2 tightens
+every row at once.
+
+### What the derivation predicts about the design
+
+- **Runtime.** 2200 mAh × 0.8 usable ÷ 1.4 A worst-case cruise = **1.26 h**;
+  ÷ 0.95 A best-case = **1.85 h**. A competition round is ~3 minutes, so
+  **25–37 runs per charge**. Battery endurance is not a design constraint for
+  this vehicle and no charging strategy is needed between rounds.
+- **The pack is not the limit.** Peak 2.6 A against a 2200 mAh 60C rating
+  (132 A) is **2.0% of capability**. Any sag observed under load therefore
+  implicates connectors, wire gauge or buck input — never the cells. That is a
+  falsifiable prediction: if row 3 shows more than 0.3 V of droop, the harness
+  is at fault and the diagnosis is already written down.
+- **Buck-2 must survive 1.25 A at 5 V**, not the 0.46 A cruise figure. Sizing to
+  cruise would brown out the servo on every corner — the same class of failure
+  as the original servo-through-ESP32 topology that was reworked on 2026-08-11.
+- **The binding constraint is Rail B, not the motor.** The Pi and camera draw
+  635–870 mA at the pack against the drive motor's 147–294 mA: perception costs
+  roughly **three times** what propulsion costs on this vehicle. Any power
+  headroom problem here is a compute problem, which is also why the in-system
+  0.3 fps collapse under concurrent load matters more than motor efficiency.
+
 ## Predicted failure-relevant notes
 - **Pack utilization <2% of the 60C rating at predicted peak** — any measured
   sag implicates connectors/wire gauge/buck input, never the cells.
