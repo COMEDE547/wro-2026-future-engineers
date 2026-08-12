@@ -4,7 +4,7 @@
 cited independent measurements. Predictions score nothing and prove nothing —
 they exist so the multimeter session has sanity bands and so the measured
 column lands next to the prediction it confirms or refutes. The measured
-column below is empty until the meter fills it.
+column fills only from meter readings — first entry 2026-08-12 (row 1).
 
 ## ⚠ Two discrepancies to resolve ON THE VEHICLE before this file is trusted
 
@@ -31,7 +31,7 @@ assumed **88% (85–92% band)** — measure it (P_out/P_in per buck) and replace
 
 | Row | Node / condition | Predicted | **Measured** | Meter reads outside band → investigate |
 |---|---|---|---|---|
-| 1 | Pack V, rested, all off | 11.7–12.6 V | | <11.1 V: pack discharged/aged |
+| 1 | Pack V, rested, all off | 11.7–12.6 V | **12.47–12.49 V** † | <11.1 V: pack discharged/aged |
 | 2 | Pack V, idle (system up, motors still) | ~rested −0.05 V | | drop >0.3 V: harness/connector resistance |
 | 3 | Pack V, driving (N20 @ STRAIGHT_SPEED, servo sweeping) | ~rested −0.1 V | | drop >0.3 V: harness, not cells (60C pack sags mV at these currents) |
 | 4 | 5 V rail (Buck-2), driving | 4.9–5.1 V | | <4.8 V: buck overloaded or input sag |
@@ -39,6 +39,20 @@ assumed **88% (85–92% band)** — measure it (P_out/P_in per buck) and replace
 | 6 | Total pack I, driving (free-run) | **0.8–1.3 A** (band 0.6–1.8) | | >1.8 sustained: N20 loaded/stalling or buck losses |
 | 7 | Servo transient adder | +0.3–0.5 A, ~100–300 ms | | >2.5 A total or >0.5 s: servo bound / N20 co-stall |
 | 8 | (optional) loaded pass, wheels pressed to mat | above row 6 | | label condition honestly; use the higher of 6/8 for runtime |
+
+> † Measured 2026-08-12, bench (Fluke 15B+, DC-V autorange): ESP32 running a
+> serial motor-test sketch via laptop USB, wheels off ground, Pi state not
+> recorded — *not* the as-raced condition this table specifies. Value sits
+> inside the predicted band. Rows 2–3 and a row-4-while-driving re-measure
+> during the first logged run. A 5 V-node reading of 5.05–5.08 V from the same
+> session is deliberately **not entered in row 4**: the probe point (Buck-2
+> output vs the Pi-USB 5 V feeding the ESP32) is unconfirmed pending the bench
+> photos, and both nodes read ~5.0–5.1 V, so the number cannot disambiguate
+> itself — entering it would be a false measured claim. Motor-terminal PWM
+> means at 0 / half / full commanded speed: 0 / 5.95–5.96 / 12.47 V ≈
+> 0 / 48 / 100 % duty (duty-cycle characterisation, not a rail voltage).
+> All currents and the servo-dip row stay empty — the meter is voltage-only
+> and has no MIN capture.
 
 **Derived rows (fill after 1–7):** idle P = V₂×I₅ · driving P = V₃×I₆ ·
 sag = V₁−V₃ · runtime = (label mAh × 0.8) ÷ I₆ · runs/charge = runtime ÷ 3 min.
