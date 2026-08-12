@@ -88,13 +88,14 @@ bottom of frame.*
 | Item | State | Blocks |
 |---|---|---|
 | Drive motor + driver | **Chosen — N20 via TB6612**, integrated in firmware; specs on record above | Flash test + direction check + duty tune still pending |
-| Chassis | **Built** — Lego Technic hybrid (plastic, printed PLA brackets for the sensors / servo / motor), Round-1 configuration; CAD/STLs not yet in `models/`; **rebuild to a fully 3D-printed chassis decided 2026-08-06** (driver: the wheel-retention failure, section 3) | Print + assemble the new frame; mass measurement, camera mounting |
-| Gearing | **Partially closed** — integrated ratio 1:50 (datasheet); the external spur-pinion -> differential-crown tooth counts remain uncounted | The uncounted stage is the last unknown in the speed / torque working point |
+| Chassis | **Built and FINAL** — Lego Technic hybrid (plastic, printed PLA brackets for sensors / motor), Round-1 configuration; ~~rebuild to a fully 3D-printed chassis decided 2026-08-06~~ **rebuild CANCELLED 2026-08-10 on retention evidence** (section 3); team CAD in `models/` since 2026-08-11 | Mass measurement, camera mounting |
+| Gearing | **Closed 2026-08-11** — integrated ratio 1:50 (datasheet); external stage counted on the vehicle: **20T pinion -> 28T crown = 5:7 (R_ext = 1.4)** | Working point now computable — see the speed calculation |
 | Wheels and tyres | **Measured** — rear 55.6 x 14 mm, front 41 x 21 mm | Traction limit; total mass still unmeasured |
 
-`models/` is still empty because the CAD / STL sources for the printed parts
-(sensor mounts, servo mount, motor mount) have not been collected yet — the
-parts themselves are on the vehicle.
+`models/` holds the team CAD since 2026-08-11/12: TF-Luna enclosure, steering
+horn beam and N20 clamp (originals, Fusion 360), the initial-design LXFML and
+a 69-page build-instructions PDF. Third-party camera-mount parts are cited in
+`models/README.md`, not redistributed.
 
 ---
 
@@ -129,7 +130,8 @@ can be criticised before money is spent.
 **Where the derivation stands (2026-08-06):** at the pack's 11.1 V nominal the
 no-load gearbox output is ~600 x (11.1 / 12) ≈ **555 RPM**; with 55.6 mm rear
 wheels the theoretical no-load ceiling is `(555 / 60) x pi x 0.0556 / R_ext` ≈
-**1.6 m/s / R_ext**, where `R_ext` is the uncounted pinion:crown ratio.
+**1.6 m/s / R_ext**; with the counted external stage (20T:28T, R_ext = 1.4)
+this gives **~1.15 m/s** as the unloaded upper bound on top speed.
 Counting two gears closes the calculation; a tape-measure speed run on the mat
 replaces it with a measured number.
 
@@ -179,13 +181,13 @@ budget is an open trade.
 ## 4. Open
 
 - **Wheel retention under drive torque — critical path** (observed failure, §3).
-- The drivetrain working point: count the pinion:crown teeth, then measure
-  speed and stall current on the mat. Motor, driver, wheels and pack are all
-  now on record.
+- The drivetrain working point: ~~count the pinion:crown teeth~~ counted
+  2026-08-11 (20:28 = 5:7); measure speed and stall current on the mat. Motor,
+  driver, wheels and pack are all now on record.
 - Camera mount at ~100 mm height and 10-17 deg pitch has a geometric
   justification ([2 — Power & Sensors](2_power_and_sensors.md#3-camera-placement-justified-by-field-geometry))
   but no physical bracket; it depends on the chassis.
-- CAD for `models/`. The signal-wiring schematic is now in `schemes/`; the
-  power-tree schematic is unblocked (pack read 2026-08-06) and pending drawing.
+- ~~CAD for `models/`~~ — **team CAD committed 2026-08-11/12** (enclosure, horn, N20 clamp, LXFML, build-instructions PDF). The signal-wiring schematic is now in `schemes/`; the
+  power-tree schematic was committed 2026-08-10/11 (`schemes/` — generated wiring v0.2 plus the as-built hand diagram).
 - ~~Six vehicle photos for `v-photos/`~~ — **done 2026-08-05**, six views
   committed.
