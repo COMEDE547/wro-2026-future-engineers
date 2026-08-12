@@ -356,3 +356,117 @@ clocks and for different reasons.
 | Picker + magenta third class | Calibration key `3`, hard `b* < 126` pre-gate, chroma floor 32, `OPEN` 3 × 3, top-3 blob selection | **Current (extension, 2026-08-12).** Parking entered scope, so bay detection had to exist. Close-range reflection bleed, not hue, was the failure; `CLOSE` morphology was tried first and falsified. 43/85 → 76/85 at tolerance 20 on 85 mat frames (§4.2). Telemetry only — no controller consumes it |
 
 Full reasoning for each in [4 — Systems Thinking & Engineering Decisions](4_systems_and_decisions.md).
+
+---
+
+## 7. Testing and tuning process
+
+The metrics in §4 say what the software achieves. This section says how the
+constants that produce them were arrived at, because a number chosen by eye and
+a number chosen by sweep score the same on a table and are not the same
+engineering.
+
+### 7.1 The test ladder
+
+Four stages, each one cheap enough to run often and each one able to falsify the
+stage below it. Nothing moves up a stage until the stage below passes.
+
+| Stage | What it can prove | What it cannot |
+|---|---|---|
+| **Host stub** — compile and run the module against a fake HAL on a desktop | Logic, state transitions, arithmetic, that a refactor did not change behaviour | Anything about timing, hardware, or the physical world |
+| **Bench, wheels off ground** | Flash succeeded, motor direction, servo travel and centre, button polarity, I²C map | Anything involving traction, load, or the mat |
+| **Mat run** | Corner detection, lap counting, whether the vehicle holds a line | Venue lighting, venue clutter |
+| **Venue check time** | Calibration under the actual lights — the only place `calib.json` may be produced | Nothing beyond it; this is the last stage |
+
+The ladder exists because of a specific failure: the drive module was written,
+host-stub verified across all three driver topologies, and *then* found to fork
+with the Round 1 sketch over a pin assignment. Host verification proved the
+module correct and proved nothing about the system it was joining.
+
+### 7.2 Where every tuned constant came from
+
+Five sources, and they are not equally trustworthy. Anything set on the mat is a
+measurement of *this* vehicle on *that* day; anything from geometry is a
+prediction that survives until measured.
+
+| Constant | Value | Set by | What would change it |
+|---|---|---|---|
+| `SERVO_CENTER` | 106 | **Mat** (2026-08-10) — was 90 | Re-tune after any linkage rebuild |
+| Steering window | 64–136, asymmetric −42/+30 | **Mechanical limits**, measured on the linkage | Rebuild; the clamp exists so no software state can command past a stop |
+| `STEER_GAIN` (R1) | 1.0 servo-deg per deg | **Mat** — was 1.5 | Oscillation at speed → lower; sluggish recovery → raise |
+| `STEER_DEADBAND` | 2.0 deg | **Mat** — added to stop hunting about centre | Wider if the servo buzzes on straights |
+| PD gains (R2) | Kp 1.2, Kd 0.15, 1.5 deg deadband, ±20 clamp | **Geometry + host stub — NOT yet mat-tuned** | First flashed mat session. This is the largest untuned surface in the controller |
+| `DRIVE_SPEED` | 1000 (~98 % duty) | **Mat** — was 550 | ⚠ Deliberately flagged: 98 % duty leaves **no headroom**, so the vehicle slows as the pack sags. A speed-vs-completion sweep is the open experiment |
+| `FINAL_RUN_MS` | 500 | **Mat** — was 1500 | Distance comment is stale at the new speed; re-derive from measured m/s |
+| `OPENING_CM` | 150 cm | **Field geometry** — corridor width vs wall height | Different mat layout |
+| Corner persistence | 5 consecutive same-direction loops | **Failure analysis** — a pillar occluding one side LiDAR fakes the asymmetry for 1–2 frames | More false corners → raise; missed corners → lower |
+| Turn completion | raw heading within 6 deg | **Falsified the smoothed alternative** — the EMA's ~200 ms lag overshot every corner | Nothing; the smoothed form is disproven |
+| Post-turn cooldown | 300 ms | **Failure analysis** — one opening must not re-trigger | — |
+| `KV_VISUAL` | 0.28 (R2 v2: red 0.34 / green 0.28) | **Geometry** — deg of steer per px of error | **Untuned.** First mat session with the obstacle stack |
+| `MIN_ACTIVE_SWERVE` | 8 | **Reasoning** — guarantees progress while any error remains | — |
+| Pass-side lines | red x < 90, green x > 150 | **Frame geometry** + rule 9.19 side semantics | Camera re-mount |
+| Height bands | 45 px far gate / 80 px too-close | **Frame geometry** | Camera re-mount |
+| Temporal vote | 5 of last 7 frames | **Reasoning** — trades latency for false-alarm rejection | Measured false-alarm rate at the venue |
+| `CLEAR` debounce | 10 frames | **Failure analysis** — the self-cancelling avoidance chain | — |
+| Dead-man | 1.5 s | **Reasoning** — link death must degrade to heading-hold | — |
+| Exposure | 50 ms | **Arithmetic, not preference** — 5 × 10 ms (50 Hz) and 6 × 8.33 ms (60 Hz), so one value is flicker-safe on either grid | Only a grid that is neither 50 nor 60 Hz |
+| White balance | 4500 K, locked | **Procedure** — any auto-WB defeats a fixed chroma disc | — |
+| `max_tol` | 15 red/green · 22 magenta | **Measured** — median + 1.4826 × MAD, capped | Cap keeps the red↔green budget apart; magenta's neighbour is 46.8–55.1 away (§4.2) |
+| Chroma floor | 32 magenta (10 default) | **Falsified experiment** — close-range reflection bleed, not hue, was the failure | — |
+| Morphology | `OPEN` 3 × 3 | **Falsified `CLOSE` first** — it bridged the bleed *into* the marker | — |
+| Detector threshold | 0.45 | **Four-point sweep** (§4) — joint-best real accuracy, 3.4× fewer phantom detections than 0.35 | Switch to 0.55 if a spurious steer proves costlier than hesitation |
+
+### 7.3 Tuning attempts that failed, and what they cost
+
+Kept because a tuning process that only records successes is a list of settings,
+not a method.
+
+| Attempt | Result | What it taught |
+|---|---|---|
+| `CLOSE` morphology to clean the magenta mask | **Falsified** — bridged reflection bleed into the marker, making the blob worse | Diagnose the failure before choosing the operator; the problem was bleed, not noise |
+| Three brightness-bucketed chroma discs | **Killed** — fewer detections, garbage boxes | Chroma is *non-monotonic* in brightness: shadow and glare both desaturate, so ordering colour regions by brightness is invalid |
+| Brightness-ordered capsule chain | **Killed** | Same root cause as above |
+| Bounded robust ellipse | **Killed** — passed synthetic tests only | Synthetic-only validation is not validation |
+| Pooled multi-session calibration | **Measured as harmful** (§4.1) — drives tolerance to the 15.00 ceiling and clips both sessions | Became a *procedural* rule: calibrate at the venue, never reuse across lighting |
+| HSV confidence rescoring | **Rejected on a ceiling calculation** (≤ 1 point) before implementation | Compute the best case before building; colour error was already 0.0 % |
+| ROI + CNN verifier fallback | **Voided** | A verifier sits downstream of proposals — it cannot recover a detection that was never made |
+
+### 7.4 The instrument question — resolved against video
+
+Performance was twice measured from run video, and **both attempts failed and
+were discarded rather than published**:
+
+1. Median-background subtraction — defeated by handheld camera motion.
+2. Colour segmentation with ORB homography stabilisation — locked onto stored
+   red and green blocks sharing the vehicle's hue family.
+
+A third analysis produced a plausible-looking oscillation frequency of 1.21 Hz.
+It was withdrawn: two estimators disagreed by **6×** (FFT 1.21 Hz vs zero-crossing
+7.5 Hz), and the 1.21 Hz "peak" turned out to be the corner frequency of the
+1-second detrend window used in the analysis itself. The vehicle's ~100 px motion
+against a ~4.5 px residual put the whole measurement at the noise floor.
+
+**Conclusion, and it is now the standing rule: the instrument is serial
+telemetry, not video.** The firmware prints `[turn] n/12`, `[steer] err/angle`,
+`[calib]`, `[perf]` and `[stop]` every loop; `tools/serial_log.py` captures it
+(`py -3 tools\serial_log.py COM5`). One logged run settles the effective loop
+rate, the turn count, the run-on distance and the stop condition simultaneously —
+four open questions, one artifact. Video is kept for the rule 7 demonstration
+requirement and for qualitative review, not for numbers.
+
+### 7.5 What is not yet tuned, and what gates it
+
+Stated plainly rather than left to inference:
+
+| Open | Gate |
+|---|---|
+| `KV_VISUAL` final value | First mat session with the obstacle stack flashed |
+| R2 PD gains (Kp 1.2 / Kd 0.15) | Same session — currently geometry-derived only |
+| Effective loop rate (~50 Hz is nominal, never measured) | One logged run; two print lines per loop and ~2 ms of I²C were never budgeted |
+| `DRIVE_SPEED` vs lap-completion trade | A two-speed sweep, ~10 runs each |
+| Parking bay entry geometry | The park controller, which does not exist in the committed build |
+
+Every row above is a measurement this repository does not have. They are listed
+here rather than quietly omitted, because the difference between a tuned constant
+and an untuned one is exactly what a reader needs in order to judge how far the
+metrics in §4 generalise.
