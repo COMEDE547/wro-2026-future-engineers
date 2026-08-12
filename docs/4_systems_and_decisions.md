@@ -200,10 +200,16 @@ park, **1.8.3 pays 7 even for a partial or non-parallel park**, and 1.8.1 adds
 7 for starting in the lot with a completed lap - so a crude, conservative
 attempt strictly dominates a descope that forfeits up to 22 points to save
 nothing but code. Constraints accepted with the decision: the runtime picker
-excludes magenta by design, so bay detection is a new capability (a third
+excluded magenta by design, so bay detection was a new capability (a third
 calibrated class, or TF-Luna geometry against the 20 mm limiters); and rule
 9.24.7 ends the round on touching a limiter, which caps how aggressive the
 manoeuvre may be.
+
+**Update 2026-08-12 — first constraint closed.** The picker now carries a
+calibrated magenta class and reports bay sightings as telemetry
+([3 — Software](3_software.md), §3.1), validated at 76/85 on mat frames
+(§4.2). The park controller is still unwritten: detection exists, behaviour
+does not.
 
 ### D8 - Chassis: rebuild from LEGO hybrid to fully 3D-printed (2026-08-06)
 
@@ -225,7 +231,7 @@ the vehicle of record.
 |---|---|---|---|---|---|
 | R1 | Class order silently inverted between `data.yaml`, `nanodet_lite/cfg.py` and `tools/tiny_pillar.py` — every steering decision flips | Low | **Critical** | Class list is `["green", "red"]` in all three files. The pass-side lookup is keyed on the class **name**, never the index, so a reordering cannot invert steering. The loader refuses to start if a checkpoint class list disagrees with the config. | **Closed by design** |
 | R2 | Venue lighting differs from the capture session | **High** | High | **Now quantified (2026-08-08):** across our two acquisition sessions the fitted Lab (a,b) centre for red moves **24.0** units while the picker's tolerance is only 12–15, so a calibration from one session cannot cover the other — pooling the two saturates tolerance at the 15.00 cap and costs 3.2 % wrong-side calls, which condition-matched calibration reduces to 0.0 % (0 wrong in 33 committed calls). Hue-jitter augmentation stays disabled (hue *is* the label). **Procedural mitigation: calibrate at the venue in the venue's light during check time, save to `calib.json`, run headless from it; never reuse a calibration across lighting.** Raw: `docs/eval_raw/picker_eval_summary.txt`. | Mitigated by procedure, not closed |
-| R3 | Magenta parking-zone walls sit between red and green in hue and are misread as pillars | Medium | Medium | Magenta surfaces deliberately included among the mined background negatives so the detector is trained to ignore them. | Mitigated |
+| R3 | Magenta parking-zone walls sit between red and green in hue and are misread as pillars | Medium | Medium | Two independent mitigations. Superseded detector: magenta surfaces deliberately included among the mined background negatives. Current picker (2026-08-12): magenta is its own calibrated class, and the measured red↔magenta separation in (a,b) is 46.8–55.1 against tolerances of 15 and 22 — the misread is out of reach rather than merely trained against. | Mitigated (measured, single session) |
 | R4 | Dataset is 597 images from **one** lighting session with zero venue clutter | **Certain** | High | Stated openly wherever a number is quoted. A second capture session under different lighting, with clutter present, is the highest-priority data task. | **Open** |
 | R5 | Pi 5 thermal throttling degrades inference latency during a sustained run | Medium | High | `benchncnn` must capture temperature and sustained clock in the same pass, not just peak throughput. | **Open — not yet measured** |
 | R6 | `nanodet_lite` too slow on Pi 5 CPU | Medium | High | `tiny_pillar` (111 K params) retained as a drop-in lighter fallback; the pass-side interface is identical. | **Open — gated on R5** |

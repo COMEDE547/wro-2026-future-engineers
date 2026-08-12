@@ -105,6 +105,7 @@ unsigned long lastPosMs = 0;       // when it arrived; 0 = none received this av
 unsigned long avoidStartMs = 0;    // 2026-08-11: when this avoidance began — bounds the blind full-lock fallback
 int lastMagX = -1;                 // 2026-08-11 (research B1 foundation): magenta bay telemetry —
 int lastMagH = -1;                 // stored + logged only, drives NOTHING until a parking
+int lastMagW = -1;                 // 2026-08-12: strip width (wide-flat face is the informative axis)
 unsigned long lastMagMs = 0;       // controller exists and has passed a mat gate
 
 float straightTargetHeading = 0.0;
@@ -544,7 +545,7 @@ while (Serial.available()) {
     //   CLEAR     : AVOIDING + REVERSING
     //   REVERSE   : STRAIGHT + AVOIDING + REVERSING
     //   POS,cx,h  : STRAIGHT + AVOIDING + REVERSING (tracking data)
-    //   MAG,cx,h  : any state (telemetry only — logged, never acted on)
+    //   MAG,cx,h,w : any state (telemetry only — logged, never acted on; w optional)
     //   Everything is ignored during TURNING (never abort a corner), ROBOT_STOPPED
     //   (a post-finish detection must never restart the robot), and WAIT_FOR_START.
     if (serialBuffer == "RED") {
@@ -604,8 +605,10 @@ while (Serial.available()) {
     else if (serialBuffer.startsWith("MAG,")) {
       // 2026-08-11 (research B1 foundation): magenta bay sighting from the Pi —
       // telemetry ONLY, accepted in every state precisely because it drives nothing.
-      // Rate-limited [mag] lines land in the run log; Wednesday answers "is the bay
+      // Rate-limited [mag] lines land in the run log; the mat run answers "is the bay
       // even reliably visible" before any parking controller is written.
+      // 2026-08-12: format extended to MAG,cx,h,w (w appended LAST so the old
+      // two-field parse stayed correct on any earlier build; w = -1 if absent).
       int c1 = serialBuffer.indexOf(',', 4);
       if (c1 > 4) {
         String tok = serialBuffer.substring(4, c1);
@@ -613,12 +616,21 @@ while (Serial.available()) {
         for (unsigned int i = 0; i < tok.length(); i++) { if (!isDigit(tok[i])) { numeric = false; break; } }
         if (numeric) {
           lastMagX = tok.toInt();
-          lastMagH = serialBuffer.substring(c1 + 1).toInt();
+          int c2 = serialBuffer.indexOf(',', c1 + 1);
+          if (c2 > c1) {
+            lastMagH = serialBuffer.substring(c1 + 1, c2).toInt();
+            lastMagW = serialBuffer.substring(c2 + 1).toInt();
+          } else {
+            lastMagH = serialBuffer.substring(c1 + 1).toInt();
+            lastMagW = -1;
+          }
           lastMagMs = millis();
           static unsigned long lastMagPrint = 0;
           if (millis() - lastMagPrint >= 1000) {
             lastMagPrint = millis();
-            btPrint("[mag] cx="); btPrint(lastMagX); btPrint(" h="); btPrintln(lastMagH);
+            btPrint("[mag] cx="); btPrint(lastMagX);
+            btPrint(" h="); btPrint(lastMagH);
+            btPrint(" w="); btPrintln(lastMagW);
           }
         }
       }
@@ -747,5 +759,4 @@ if ((currentState == OBSTACLE_AVOIDING || currentState == REVERSING) &&
   }
   delay(20);
 }
-
 

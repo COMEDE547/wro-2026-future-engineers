@@ -155,9 +155,13 @@ game description rather than against sampled pixels from our own footage:
 
 Calibrating to published values rather than to captured ones means the bands do
 not silently encode the lighting of the single session the dataset came from.
-Magenta is included because it sits **between** red and green in hue and is the
-most dangerous confuser on the field — it is mined into the detector's training
-negatives for the same reason.
+Magenta is included because it sits **between** red and green in hue and was
+treated as the most dangerous confuser on the field — it is mined into the
+detector's training negatives for that reason. **Measured 2026-08-12:** under
+the calibrated-Lab picker the red↔magenta separation in (a, b) is 46.8–55.1
+against tolerances of 15 and 22, so the confusion is not reachable. Magenta is
+now a calibrated class of its own rather than a hazard
+([3 — Software](3_software.md), §3.1).
 
 **Augmentation follows from this:** hue-jitter is disabled, because hue *is* the
 class label. Value, saturation, gamma and synthetic cast shadows are used

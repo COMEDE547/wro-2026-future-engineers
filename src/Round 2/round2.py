@@ -75,43 +75,62 @@ def mask_for(lab: np.ndarray, calib: dict, color: str) -> np.ndarray:
     if c is None:
         return np.zeros(lab.shape[:2], dtype=bool)
     L, a, b = lab[..., 0], lab[..., 1], lab[..., 2]
-    return _ab_lut(c['a_center'], c['b_center'], c['tol'])[a, b] & (L > c['l_min'])
+    # 2026-08-12: magenta-only chroma floor 32 (default 10). Close-range frames show
+    # a low-chroma magenta REFLECTION field on the glossy mat (chroma ~15-30) that
+    # merges with the marker (chroma ~50-57) into one giant low-extent blob. The
+    # floor cuts the bleed while keeping tape, even shaded tape.
+    mc = 32.0 if color == 'magenta' else 10.0
+    m = _ab_lut(c['a_center'], c['b_center'], c['tol'], min_chroma=mc)[a, b] & (L > c['l_min'])
+    if color == 'magenta':
+        # 2026-08-12 (85 mat frames measured): magenta is the ONLY class with b* < 0
+        # (u8 b ~112 vs red ~152+, D(a,b) to red 47-55 vs tol cap 15). Hard b-side
+        # insurance: even a badly sampled calibration circle cannot pull red/orange
+        # into the magenta mask. Blue mat line also has b<126 but its a (~110-125)
+        # sits far outside any magenta circle, so the AND only ever tightens.
+        m &= (b < 126)
+    return m
 
 
 def get_masks(lab: np.ndarray, calib: dict) -> tuple:
     return mask_for(lab, calib, 'red'), mask_for(lab, calib, 'green')
 
 
-def extract_bounding_box(mask: np.ndarray, min_area: int = 60, min_extent: float = 0.55) -> dict:
+def extract_bounding_box(mask: np.ndarray, min_area: int = 60, min_extent: float = 0.55,
+                         try_top_k: int = 1, max_aspect: float = 6.0) -> dict:
     """2026-08-11 (research A2): largest blob via cv2.connectedComponentsWithStats —
     native single pass with area/bbox in the stats table; replaces scipy.ndimage.label
     plus a python-side reduction (scipy dependency dropped from this file entirely).
     connectivity=4 matches scipy's default structure. Returned width/height keep the
     old span-minus-one convention so every downstream threshold (MIN_SWERVE_HEIGHT,
-    REVERSE_HEIGHT, aspect, safe lines) is numerically untouched."""
+    REVERSE_HEIGHT, aspect, safe lines) is numerically untouched.
+    2026-08-12: try_top_k (default 1 = pillar behavior bit-exact) lets the magenta
+    path fall through to the next-largest component when #1 fails the gates - with
+    two strips per lot plus edge-clipping, the biggest blob is not always the usable
+    one. max_aspect stays 6 for pillars; strips may pass a wider cap."""
     if int(mask.sum()) < min_area:
         return None
     n, _labels, stats, _cents = cv2.connectedComponentsWithStats(
         mask.astype(np.uint8), connectivity=4)
     if n <= 1:
         return None
-    areas = stats[1:, cv2.CC_STAT_AREA]
-    i = 1 + int(np.argmax(areas))
-    area = int(stats[i, cv2.CC_STAT_AREA])
-    if area < min_area:
-        return None
-    x = int(stats[i, cv2.CC_STAT_LEFT])
-    y = int(stats[i, cv2.CC_STAT_TOP])
-    tw = int(stats[i, cv2.CC_STAT_WIDTH])
-    th = int(stats[i, cv2.CC_STAT_HEIGHT])
-    w, h = tw - 1, th - 1
-    if w < 6 or h < 6 or (w / max(h, 1)) > 6 or (h / max(w, 1)) > 6:
-        return None
-    extent = area / (tw * th)
-    if extent < min_extent:
-        return None
-    return {"x": x, "y": y, "width": w, "height": h,
-            "center_x": x + w // 2, "center_y": y + h // 2}
+    order = sorted(range(1, n), key=lambda i: -int(stats[i, cv2.CC_STAT_AREA]))
+    for i in order[:max(1, try_top_k)]:
+        area = int(stats[i, cv2.CC_STAT_AREA])
+        if area < min_area:
+            break
+        x = int(stats[i, cv2.CC_STAT_LEFT])
+        y = int(stats[i, cv2.CC_STAT_TOP])
+        tw = int(stats[i, cv2.CC_STAT_WIDTH])
+        th = int(stats[i, cv2.CC_STAT_HEIGHT])
+        w, h = tw - 1, th - 1
+        if w < 6 or h < 6 or (w / max(h, 1)) > max_aspect or (h / max(w, 1)) > max_aspect:
+            continue
+        extent = area / (tw * th)
+        if extent < min_extent:
+            continue
+        return {"x": x, "y": y, "width": w, "height": h,
+                "center_x": x + w // 2, "center_y": y + h // 2}
+    return None
 
 
 def process_frame(frame: np.ndarray, calib: dict, edge_margin: int = 6) -> tuple:
@@ -125,6 +144,14 @@ def process_frame(frame: np.ndarray, calib: dict, edge_margin: int = 6) -> tuple
     lab = rgb_to_lab(frame)
     red_mask, green_mask = get_masks(lab, calib)
     mag_mask = mask_for(lab, calib, 'magenta')
+    if mag_mask.any():
+        # 2026-08-12 (measured on 85 mat frames): OPEN 3x3 severs the thin bridges
+        # left between the marker and residual reflection bleed, so the tape stays
+        # one solid high-extent blob. (A CLOSE was tried first and disproven - it
+        # bridged the bleed INTO the marker.) MAGENTA ONLY - the pillar path stays
+        # numerically frozen per this file's own doctrine.
+        mag_mask = cv2.morphologyEx(mag_mask.astype(np.uint8), cv2.MORPH_OPEN,
+                                    np.ones((3, 3), np.uint8)).astype(bool)
 
     if edge_margin > 0:
         for m in (red_mask, green_mask, mag_mask):
@@ -135,7 +162,12 @@ def process_frame(frame: np.ndarray, calib: dict, edge_margin: int = 6) -> tuple
 
     red_box = extract_bounding_box(red_mask)
     green_box = extract_bounding_box(green_mask)
-    mag_box = extract_bounding_box(mag_mask) if 'magenta' in calib else None
+    # 2026-08-12: strips get their own extraction params. The lot limitation is a
+    # wide-flat 200x100 face (measured w/h ~1.46) - an OBLIQUE strip fills its
+    # axis-aligned bbox poorly, so the pillar extent floor of 0.55 rejects real
+    # sightings. Magenta has zero confusion risk (hard b<126 gate), so 0.40 is safe.
+    mag_box = (extract_bounding_box(mag_mask, min_extent=0.40, try_top_k=3, max_aspect=8.0)
+               if 'magenta' in calib else None)
     return red_box, green_box, mag_box
 
 
@@ -227,6 +259,8 @@ def run_calibration_session(get_frame, roi: tuple, window_name: str, initial: di
     print("Hold the RED block inside the cyan box, press 1 to sample (3-4x, moving it slightly).")
     print("Hold the GREEN block inside the cyan box, press 2 to sample (3-4x).")
     print("OPTIONAL: hold the MAGENTA parking marker in the box, press 3 to sample (parking research).")
+    print("  (reference, phone-measured 2026-08-12, cv2 u8 LAB: expect a_center ~183, b_center ~112;")
+    print("   b_center must sit clearly BELOW 128 (neutral) - if it doesn't, you sampled the wrong thing.)")
     print("Press N when satisfied with both, or R to clear the last color's samples.")
     print("Press Q to abort calibration.\n")
 
@@ -273,7 +307,11 @@ def run_calibration_session(get_frame, roi: tuple, window_name: str, initial: di
                   f"tol={calib['green']['tol']:.1f} l_min={calib['green']['l_min']:.1f}")
         elif key == ord('3') and (now - last_sample_time) > debounce_s:
             samples['magenta'].append(sample_roi_lab(frame, roi))
-            calib['magenta'] = calibrate_color(list(samples['magenta']))
+            # 2026-08-12: magenta gets its own tol cap. The 15 cap protects
+            # red<->green; magenta's nearest neighbour (red) sits 47-55 away in
+            # (a,b) AND the hard b<126 gate stands behind it, so 22 is still
+            # structurally confusion-free while surviving shading across the strip.
+            calib['magenta'] = calibrate_color(list(samples['magenta']), max_tol=22.0)
             last_color = 'magenta'
             last_sample_time = now
             print(f"Sampled MAGENTA ({len(samples['magenta'])}/{MAX_SAMPLES}) -> "
@@ -802,7 +840,11 @@ def main(camera_id: int = 0, frame_size: int = 240, headless: bool = False,
             if mag_confirmed and mag_box is not None and ser is not None:
                 now_t = time.monotonic()
                 if now_t - last_mag_send >= 0.2:
-                    send(f"MAG,{int(mag_box['center_x'])},{int(mag_box['height'])}\n".encode())
+                    # 2026-08-12: width appended LAST - old firmware's h parse is
+                    # substring-after-2nd-comma + toInt(), which stops at a comma,
+                    # so MAG,cx,h,w keeps h correct on the never-flashed v2 build
+                    # while the paired firmware learns the width field.
+                    send(f"MAG,{int(mag_box['center_x'])},{int(mag_box['height'])},{int(mag_box['width'])}\n".encode())
                     last_mag_send = now_t
 
             # Display (GUI mode only — headless does zero cv2 UI work)

@@ -46,7 +46,11 @@ and there is no landmark in the Open Challenge to correct against.
 that gated the landing are done: the wireless telemetry link is compiled out
 behind `ENABLE_BLUETOOTH 0` for rule 11.10 compliance, the BNO055 sits on
 verified multiplexer channel 4, and the TB6612 standby line is driven high
-unconditionally. The state machine below documents the controller as flashed.
+unconditionally. The state machine below documents the controller **as
+committed** in `src/Round 2/` — not as resident on the vehicle. What is
+physically on the ESP32 is whatever was flashed last, which this repository
+does not track, so a flash of the committed build precedes any run and the run
+log records the revision flashed.
 
 ```mermaid
 stateDiagram-v2
@@ -111,16 +115,16 @@ stray post-finish detection must never restart the vehicle, rule 9.24).
 
 **Parking is confirmed in-scope (decided 2026-08-06)** — `PARK_SEARCH` /
 `PARALLEL_PARK` states are a commitment, not an option, but they are not in
-the flashed controller yet. The scoring
+the committed controller yet. The scoring
 table settles it: rule 1.8.3 pays 7 points even for a partial or non-parallel
 park, so a crude, conservative attempt strictly dominates a descope (full
-rationale: [4 — Decisions](4_systems_and_decisions.md), D7). Two constraints
-shape the implementation: the runtime colour picker **excludes magenta by
-design** — its tight Lab tolerance is exactly what makes red-vs-magenta
-confusion structurally impossible — so bay detection needs either a third
-calibrated magenta class or TF-Luna geometry against the 20 mm limiters; and
-rule 9.24.7 ends the round on touching a limiter, which caps how aggressive
-the manoeuvre may be.
+rationale: [4 — Decisions](4_systems_and_decisions.md), D7). One of the two
+constraints has since been removed: bay **detection** exists — the runtime
+picker gained a third calibrated magenta class on 2026-08-12 (§3.1) and
+reports bay sightings as telemetry. What is missing is the controller that
+acts on them: no state consumes `MAG` and the park states do not exist in
+code. The second constraint stands — rule 9.24.7 ends the round on touching a
+limiter, which caps how aggressive the manoeuvre may be.
 
 Parking-bay entry geometry, and the tuned value of the gradient gain `KV` —
 both wait on the new chassis dimensions and mat time (see
@@ -151,6 +155,31 @@ ONNX — won the val split but did not transfer to real footage. Full write-up a
 reproduction steps: [`src/Round 2/detector/README.md`](../src/Round%202/detector/README.md);
 selection evidence vs `tiny_pillar`:
 [4 — Systems Thinking](4_systems_and_decisions.md#d2--tiny_pillar-111-k-params-rejected-in-favour-of-nanodet_lite-117-m-params).
+
+---
+
+### 3.1 Third class: magenta parking-lot markers (2026-08-12)
+
+The runtime picker calibrates three classes, not two. Magenta was previously
+excluded on purpose — as a distractor to veto, since the rules put magenta only
+on the parking-lot limitation blocks (200 × 20 × 100 mm, RGB 255, 0, 255) and
+nothing in the controller scored for them. Parking is in scope, so magenta is
+now calibrated exactly like red and green, on calibration key `3`.
+
+The gates below are magenta-only. The red/green path is unchanged and was
+verified bit-identical after the change.
+
+| Gate | Value | Why |
+|---|---|---|
+| Hard pre-gate | `b* < 126` in u8 Lab (`b* < 0` signed) | magenta is the only one of the three classes with negative `b*` — the mirror of the red `b* > 0` gate |
+| Chroma floor | 32 (default 10) | at close range a low-chroma magenta reflection-bleed field on the glossy mat merges with the marker into one large, low-extent blob. The bleed, not the hue, was the failure |
+| Morphology | `OPEN` 3 × 3 | severs the bleed from the marker. A `CLOSE` was tried first and falsified — it bridges the bleed *into* the marker |
+| Blob selection | extent ≥ 0.40, top-3 candidates, aspect ≤ 8 | two strips per lot, plus edge clipping, mean the largest blob is often not the usable one |
+| Calibration tolerance | `max_tol` 22 | the 15 cap exists to keep the red↔green budget apart; magenta's nearest neighbour is far outside it (§4.2) |
+
+The Pi emits `MAG,cx,h,w` at 5 Hz after a 5-of-N confirmation. Width is
+appended **last**, so a parser reading the earlier two-field form stays
+correct. The ESP32 stores the width and drives no behaviour from it.
 
 ---
 
@@ -270,11 +299,35 @@ colour is already solved, so a colour-based fix has nowhere to go.
 
 ---
 
+### 4.2 Magenta class figures
+
+85 frames sampled from two videos of the actual lot markers on the mat, run
+through the full `process_frame` path rather than the mask alone. Detection at
+tolerance 20: **43/85 → 76/85**.
+
+All nine residual misses are close-approach frames in which the tape's chroma
+physically collapses. That range belongs to the front TF-Luna, not the camera.
+Distant and mid range are 100 %.
+
+Measured magenta↔red separation in (a\*, b\*) is **46.8** on stills and **55.1**
+on video, against tolerances of 22 for magenta and 15 for red — a cross-class
+hit is not reachable. This is a different quantity from the 108.4 recorded in
+`docs/eval_raw/picker_eval_summary.json`, which is the distance from the
+calibrated red centre to the **published** magenta RGB; real tape is duller
+than the published colour. Both figures sit far outside every tolerance in use.
+
+The gates were set on phone footage whose auto white balance drifted (a\* 60 →
+49 across 22 s), so the figures above are frame-set numbers, not mat
+performance. The live, exposure- and WB-locked calibration on key `3` remains
+the procedure of record for a run.
+
+---
+
 ## 5. Edge cases
 
 | Case | Handling |
 |---|---|
-| **Magenta parking walls** sit between red and green in hue and defeat a naive hue band | Magenta surfaces mined into the training negatives. HSV bands calibrated against the official RGB values (red 238,39,55 · green 68,214,44 · magenta 255,0,255). |
+| **Magenta parking walls** sit between red and green in hue and defeat a naive hue band | Not a confuser under the calibrated-Lab picker: magenta is its own calibrated class, separated from red by 46.8–55.1 in (a\*, b\*) against tolerances of 22 and 15 (§4.2). Magenta surfaces remain mined into the superseded detector's training negatives. |
 | **Two same-colour pillars merge into one blob** under connected components | Nearest pillar is selected by **lowest box bottom edge**, which survives a merge better than box area or height. |
 | **Distant pillars** below the `MIN_H` height gate | Deliberately ignored. A pillar too small to measure reliably is a pillar there is still time to react to on a later frame. |
 | **Occluded pillar, top clipped** | Selection uses the bottom edge, not the height: clipping eats the top of a pillar while its base stays put. |
@@ -299,6 +352,7 @@ clocks and for different reasons.
 | HSV rescoring | Proposed confidence re-weighting | Rejected on a ceiling calculation of <= 1 point |
 | ROI + CNN verifier | Proposed fallback architecture | Voided: a verifier cannot recover a miss |
 | YOLO26 (Ultralytics) | 9.47 M-param end-to-end detector; `s` measured ~30 fps @ 224 on the Pi 5 | Trained on the leaky split (numbers withdrawn); the smaller `n` variant failed under concurrent runtime load — suspected OOM, kernel-log capture pending |
-| Calibrated-Lab picker | Per-venue interactive calibration: one (a,b) chroma disc per colour + L floor; CCL; 3-of-5 vote | **Current.** Fixed bands degraded under lighting / brightness variation; per-venue sampling is the reversal that survived. Sub-iterations (3-disc brightness buckets, capsule chain) tested and killed — the single disc is what passed hardware testing. Accuracy and ms/frame capture pending |
+| Calibrated-Lab picker | Per-venue interactive calibration: one (a,b) chroma disc per colour + L floor; CCL; 3-of-5 vote | **Current (base).** Fixed bands degraded under lighting / brightness variation; per-venue sampling is the reversal that survived. Sub-iterations (3-disc brightness buckets, capsule chain) tested and killed — the single disc is what passed hardware testing. Accuracy and ms/frame capture pending |
+| Picker + magenta third class | Calibration key `3`, hard `b* < 126` pre-gate, chroma floor 32, `OPEN` 3 × 3, top-3 blob selection | **Current (extension, 2026-08-12).** Parking entered scope, so bay detection had to exist. Close-range reflection bleed, not hue, was the failure; `CLOSE` morphology was tried first and falsified. 43/85 → 76/85 at tolerance 20 on 85 mat frames (§4.2). Telemetry only — no controller consumes it |
 
 Full reasoning for each in [4 — Systems Thinking & Engineering Decisions](4_systems_and_decisions.md).
