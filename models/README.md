@@ -17,7 +17,7 @@ team part alongside its STL** (Fusion cloud retains them).
 
 | Part | File | Fitted as | Bounding box (mm) | Designed by / in |
 |---|---|---|---|---|
-| N20 motor mount | `n20/` — **STL + .f3d pending export from Fusion** | Printed mount holding the 12 V N20 gearmotor | — | TED drive, Fusion 360 |
+| N20 motor mount | `drive/n20_clamp_lego.stl` (committed 2026-08-12) | Printed clamp holding the 12 V N20 gearmotor to the LEGO frame | 38.8 × 26.0 × 12.0 | TED drive, Fusion 360 (re-modelled; .f3d export still owed) |
 
 ## Third-party printed parts — sources
 
@@ -32,8 +32,7 @@ https://www.printables.com/model/352447 — accessed 11 Aug 2026.
 Parts as fitted on the vehicle: front clamp, rear clamp, base bracket, spacer
 arm (white PLA). License: stated on the model page (not machine-readable at
 citation time) — confirm there before ever redistributing the files.
-**[State here if any part was modified from the published geometry; as-printed
-otherwise.]**
+Parts used as-printed from the published geometry; no modifications.
 
 **[2]** PsychoShaft, *"C92X Mount,"* VoronDesign/VoronUsers `printer_mods`
 (the upstream design that [1] remixes).
@@ -43,7 +42,8 @@ https://github.com/VoronDesign/VoronUsers/tree/master/printer_mods/PsychoShaft/C
 **[3]** Lenovo, *"Lenovo 300 FHD WebCam — Overview and Service Parts,"*
 acc500192.
 https://support.lenovo.com/in/en/accessories/acc500192-lenovo-300-fhd-webcam-overview-and-service-parts
-— the mounted camera hardware (1080p, 95° FOV, USB).
+— the mounted camera hardware (1080p, 95° FOV, USB). Team designation for the
+same unit: **OMO/WCAM/11** (see `docs/2_power_and_sensors.md`).
 
 ## Design history
 
@@ -51,10 +51,13 @@ https://support.lenovo.com/in/en/accessories/acc500192-lenovo-300-fhd-webcam-ove
   LEGO layout, abandoned because (1) the motor and battery could not both be
   packaged, (2) the centre of mass sat far too high, (3) the vehicle would not
   hold a curve. The current chassis is the ground-up LEGO redesign that
-  answered all three. **[Ethan to confirm wording before commit.]**
+  answered all three.
+- `initial-design/TED_Drive_model_build_instructions.pdf` (added 2026-08-12):
+  69-page step-by-step build export of the TED drive LEGO model, generated
+  from the team's own CAD.
 - Current LEGO chassis design file — incoming.
 
 ## Not printed
 
 MG90S servo body is LEGO-integrated. (2026-08-11 eyeball on the vehicle:
-the N20 **is** in a printed mount — row added above, files pending export.)
+the N20 **is** in a printed mount — STL committed 2026-08-12; .f3d export still owed.)
