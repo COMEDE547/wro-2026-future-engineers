@@ -93,8 +93,10 @@ bottom of frame.*
 | Wheels and tyres | **Measured** — rear 55.6 x 14 mm, front 41 x 21 mm | Traction limit; total mass still unmeasured |
 
 `models/` holds the team CAD since 2026-08-11/12: TF-Luna enclosure, steering
-horn beam and N20 clamp (originals, Fusion 360), the initial-design LXFML and
-a 69-page build-instructions PDF. Third-party camera-mount parts are cited in
+horn beam and N20 clamp (originals, Fusion 360), plus the **current chassis
+design** — `models/chassis/chassis_lego_current.lxfml` and its 69-step build
+instructions, which is the redesigned frame this section describes and is
+enough to rebuild it from parts. Third-party camera-mount parts are cited in
 `models/README.md`, not redistributed.
 
 ---
@@ -249,7 +251,7 @@ budget is an open trade.
 - Camera mount at ~100 mm height and 10-17 deg pitch has a geometric
   justification ([2 — Power & Sensors](2_power_and_sensors.md#3-camera-placement-justified-by-field-geometry))
   but no physical bracket; it depends on the chassis.
-- ~~CAD for `models/`~~ — **team CAD committed 2026-08-11/12** (enclosure, horn, N20 clamp, LXFML, build-instructions PDF). The signal-wiring schematic is now in `schemes/`; the
+- ~~CAD for `models/`~~ — **team CAD committed 2026-08-11/12** (enclosure, horn, N20 clamp, current chassis design + build instructions, PDF). The signal-wiring schematic is now in `schemes/`; the
   power-tree schematic was committed 2026-08-10/11 (`schemes/` — generated wiring v0.2 plus the as-built hand diagram).
 - ~~Six vehicle photos for `v-photos/`~~ — **done 2026-08-05**, six views
   committed.
