@@ -135,6 +135,55 @@ this gives **~1.15 m/s** as the unloaded upper bound on top speed.
 Counting two gears closes the calculation; a tape-measure speed run on the mat
 replaces it with a measured number.
 
+### Torque, traction and acceleration (derived 2026-08-13)
+
+Speed above answers "how fast can it go." This answers "can it get there, and
+what stops it first." Every input is either measured on the vehicle (ratio,
+wheel diameter) or the datasheet-class motor figure from §1 — none is a bench
+measurement of this motor, and the section is labelled accordingly.
+
+**Torque at the wheel.** The external stage multiplies motor torque by
+`R_ext = 1.4` (20T pinion into a 28T ring, counted on the vehicle 2026-08-11):
+
+| | Motor (datasheet-class) | × 1.4 → wheel | Tractive force at r = 27.8 mm |
+|---|---|---|---|
+| Rated | 0.18 kg·cm = 0.0177 N·m | 0.0247 N·m | **0.89 N** |
+| Stall | 0.65 kg·cm = 0.0637 N·m | 0.0892 N·m | **3.21 N** |
+
+**What stops the vehicle first — and it is genuinely close.** Traction limit is
+`μ × N_rear`. Total mass is capped at 1.5 kg by rule and **has never been
+weighed**; taking a 1.0–1.5 kg band and 50–60 % of weight on the driven axle
+gives `N_rear ≈ 4.9–8.8 N`, and rubber on a painted mat is roughly μ = 0.5–0.9:
+
+`F_traction ≈ 2.5 N (light vehicle, slick mat) … 7.9 N (heavy, grippy)`
+
+Against a stall tractive force of **3.21 N**, the design sits *on the boundary*.
+At the pessimistic end the wheels break traction before the motor stalls; at the
+optimistic end the motor stalls before the tyres let go. **Weighing the vehicle
+and noting the front/rear split settles which regime it is in — that single
+measurement is worth more to this chapter than any other.** The distinction is
+not academic: it decides whether a wall strike stalls the motor (current spike,
+TB6612 thermal event) or spins the wheels (no spike, but no recovery either).
+
+**Acceleration.** Motor torque falls roughly linearly from stall toward rated as
+speed rises, so a mid-ramp average of ~2.0 N on 1.25 kg gives ~1.6 m/s². Reaching
+the derived 1.15 m/s ceiling therefore takes **~0.7 s over ~0.40 m** — about half
+a corridor width, which is why the vehicle is at speed well before the first
+corner and why `FINAL_RUN_MS` behaves as a distance rather than a ramp.
+
+**Does the ratio give enough speed?** The driving corridor is ~1000 mm inside a
+3200 mm mat, so a lap centre-line is roughly `4 × 2.2 m ≈ 8.8 m` and three laps
+≈ **26 m**. At the derived 1.15 m/s that is **~23 s of driving** before corner
+slowdowns and pass manoeuvres. The 5:7 external stage is therefore not the
+binding constraint on round time — which is the justification for leaving it at
+5:7 rather than re-cutting for speed.
+
+**What would overturn this section:** a weighed vehicle (settles the traction
+regime), a measured stall current (converts the datasheet stall torque into a
+figure for *this* motor), or a tape-measure speed run (replaces the 1.15 m/s
+derivation outright). All three are single-session measurements and all three
+are listed in §4.
+
 ### The test that will change the design
 
 Corner exit at full steering saturation is the binding mechanical case: it
