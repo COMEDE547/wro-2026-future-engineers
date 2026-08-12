@@ -72,6 +72,42 @@ const int MAX_TURNS      = 12;   // Total number of turns allowed before trackin
 
 unsigned long turnCooldownUntil = 0;   // NEW: timestamp until which obstacle checks are ignored
 const unsigned long TURN_COOLDOWN_MS = 300; // tune this — how long to ignore after a turn
+
+// ═══ PARALLEL PARKING (feat/round2-park — NOT for the 2026-08-12 scored push) ═══
+// Rules 2026: the lot is ALWAYS in the starting section (Fig 8d), i.e. the section
+// the vehicle re-enters when turn 12 completes. Lot = two magenta limiters
+// 200x20x100 mm perpendicular to the OUTER wall, gap = 1.5 x vehicle length,
+// depth 20 cm. 1.8.2 full parallel (projection inside + wheel-to-wall delta
+// <= 2 cm) = 15 pts; 1.8.3 partial/not parallel = 7; touching a limiter ends the
+// round with NO park points (9.24.7). Post-lap-3 the pillar side rules are OFF
+// (App A sec.5) and signs in this section are moved toward the INNER wall (Fig 8e), so the
+// outer-wall approach lane is pillar-free by construction.
+// Every abort path degrades to a plain stop — points banked beat points risked.
+// ⚠ ALL values below are MAT-UNVERIFIED until the Aug 22 bench.
+// Rule cites verified verbatim against the official 2026 PDF (version Jan 15 2026):
+// sec.8 + Fig 8d/8e, 9.24.4, 9.24.7, scoring table 1.8.1-1.8.3, 13.25-13.27 (limiter
+// 200x20x100 magenta), App A sec.2 (30 s still), sec.5 (side rules off post-lap-3,
+// moving still banned), sec.6 (parallel = wheel-to-wall delta <= 2 cm).
+#define PARK_ENABLED 1              // 0 = byte-for-byte legacy stop behavior
+const int           PARK_APPROACH_SPEED = 100;   // = STRAIGHT_SPEED; literal so tuning one can't silently move the other
+const int           PARK_MAX_EXTRA_TURNS = 2;    // corners past 12 => we left the lot section: stop
+const unsigned long PARK_MAG_WAIT_MS  = 6000;    // armed but no limiter ever seen -> legacy wall stop
+const int           MAG_MIN_H         = 8;       // px; below this a MAG frame is noise, not a limiter
+const int           MAG_NEAR_H        = 30;      // px; "close abeam" height — SET FROM [mag] LOGS ON THE MAT
+const unsigned long MAG_FRESH_MS      = 450;     // > 2 periods of the Pi's 5 Hz MAG stream
+const unsigned long MAG_LOST_MS       = 700;     // close-then-gone this long = passed abeam
+const unsigned long MAG_SECOND_WAIT_MS = 2500;   // far limiter never re-acquired -> solo-passage mode
+const float         MAG_HANDOFF_RATIO = 0.55;    // fresh h collapsing below ratio*max after close = near->far handoff (passage without dropout)
+const unsigned long PARK_PASS_MS      = 900;     // nose-past-far-limiter run (~0.35 m at approach speed)
+const unsigned long PARK_PASS_SOLO_MS = 1600;    // longer clearance when only one passage was seen
+const float         PARK_CUT_IN_DEG   = 42.0;    // reverse-arc target yaw before counter-steer
+const float         PARK_ALIGNED_DEG  = 8.0;     // |yaw error| considered parallel again
+const unsigned long PARK_ARC_IN_MS    = 3000;    // hard caps: no arc runs forever
+const unsigned long PARK_ARC_OUT_MS   = 3000;
+const unsigned long PARK_ARC_MIN_MS   = 400;     // floor before ARC_OUT may declare PARKED (entry |dyaw| can already be < aligned tol)
+const unsigned long PARK_TOTAL_MS     = 15000;   // arming -> forced stop (3-min round budget)
+const int           PARK_WALL_NEAR_CM = 14;      // wall-side Luna floor during arc-in (diagonal read)
+const int           PARK_WALL_STOP_CM = 5;       // wall-side Luna floor during arc-out (near-perpendicular)
 const int SPIKE_PERSIST_LOOPS = 5;     // corner spike must hold this many consecutive loops (rejects pillar occlusion)
 
 // gradient visual steering (tune on mat)
@@ -93,7 +129,10 @@ Servo steeringServo;
 BluetoothSerial SerialBT;    // Added Bluetooth object
 #endif
 
-enum RobotState { WAIT_FOR_START, DRIVING_STRAIGHT, TURNING, ROBOT_STOPPED, OBSTACLE_AVOIDING, REVERSING };
+// PARK_* appended, never inserted: the serial protocol's state gates compare against
+// named states, so RED/GREEN/CLEAR/REVERSE/POS are ignored in every PARK_* state with
+// zero changes to the protocol block (post-lap-3 the side rules are off anyway, App A sec.5).
+enum RobotState { WAIT_FOR_START, DRIVING_STRAIGHT, TURNING, ROBOT_STOPPED, OBSTACLE_AVOIDING, REVERSING, PARK_PASS, PARK_ARC_IN, PARK_ARC_OUT };
 RobotState currentState = WAIT_FOR_START;
 
 bool avoidDirectionRight = true;   // true = swerve right (for RED), false = swerve left (for GREEN)
@@ -103,9 +142,26 @@ unsigned long lastReverseCmd = 0;  // last time a REVERSE arrived
 int lastPosX = -1;                 // latest block center-x from the Pi POS stream (0..239)
 unsigned long lastPosMs = 0;       // when it arrived; 0 = none received this avoidance
 unsigned long avoidStartMs = 0;    // 2026-08-11: when this avoidance began — bounds the blind full-lock fallback
-int lastMagX = -1;                 // 2026-08-11 (research B1 foundation): magenta bay telemetry —
-int lastMagH = -1;                 // stored + logged only, drives NOTHING until a parking
-unsigned long lastMagMs = 0;       // controller exists and has passed a mat gate
+int lastMagX = -1;                 // magenta limiter sighting from the Pi (MAG,cx,h[,w])
+int lastMagH = -1;                 // consumed by the parking controller below when PARK_ENABLED;
+int lastMagW = -1;                 // w = optional 3rd field (v3 pipeline parity), -1 when absent
+unsigned long lastMagMs = 0;       // telemetry-only when PARK_ENABLED == 0
+
+#if PARK_ENABLED
+bool  parkArmed = false;           // set once when turn 12 completes
+unsigned long parkArmedMs = 0;
+int   parkTurnsAtArm = 0;
+bool  parkLotOnRight = false;      // derived: CCW round (left turns) => outer wall on the right
+float parkRefHeading = 0.0;        // wall-parallel cardinal, from the stepped-target chain (drift-free)
+bool  magEstablished = false;      // limiter currently tracked
+bool  magCloseSeen = false;        // tracked limiter got close (h >= MAG_NEAR_H)
+int   magPassages = 0;             // limiters passed abeam (established-close-then-lost)
+int   magMaxH = 0;                 // running max h since establish - handoff detection baseline
+uint8_t magHandoffStreak = 0;      // consecutive fresh samples below the handoff ratio (2 = confirm)
+unsigned long magPassageMs = 0;
+bool  parkSoloPass = false;        // far limiter never re-acquired -> longer clearance run
+unsigned long parkPhaseMs = 0;     // current PARK_* phase start
+#endif
 
 float straightTargetHeading = 0.0;
 float turnTargetHeading     = 0.0;
@@ -365,6 +421,9 @@ void driveStraightMode(float currentHeading) {
       fabs(headingError) < FAST_MAX_HEADING_ERR && millis() > turnCooldownUntil) {
     speed = FAST_SPEED;
   }
+#if PARK_ENABLED
+  if (parkArmed) speed = PARK_APPROACH_SPEED;   // the lot approach never sees the fast tier
+#endif
   setMotorOutput(speed);
 
   float rawError = straightTargetHeading - currentHeading;
@@ -441,11 +500,47 @@ void executeTurnMode(float currentHeading) {
 }
 
 
+#if PARK_ENABLED
+// Same intent->endpoint mapping as avoidObstacle's field-proven full lock.
+int fullLockToward(bool right) {
+  if (right) return INVERT_STEERING ? SERVO_MAX_LEFT  : SERVO_MAX_RIGHT;
+  else       return INVERT_STEERING ? SERVO_MAX_RIGHT : SERVO_MAX_LEFT;
+}
+
+// Signed yaw error vs the wall-parallel reference. RAW heading, matching the A11
+// turn-completion convention: the EMA's ~200 ms lag would blow the arc exits.
+float parkYawDelta() {
+  float d = getCurrentHeading() - parkRefHeading;
+  if (d > 180.0)  d -= 360.0;
+  if (d < -180.0) d += 360.0;
+  return d;
+}
+
+int16_t parkWallDist() { return parkLotOnRight ? currentRightDist : currentLeftDist; }
+
+bool magFresh() {
+  return lastMagMs != 0 && (millis() - lastMagMs) < MAG_FRESH_MS && lastMagH >= MAG_MIN_H;
+}
+
+void parkStop(const char* why) {
+  btPrint("[park] STOP: "); btPrintln(why);
+  setMotorOutput(0);
+  steeringServo.write(SERVO_CENTER);
+  finalServoAngle = SERVO_CENTER;
+  currentState = ROBOT_STOPPED;
+}
+#endif
+
 void printTelemetry(float currentHeading) {
   if (currentState == DRIVING_STRAIGHT) btPrint("MODE: STRAIGHT");
   else if (currentState == TURNING)     btPrint("MODE: TURNING ");
   else if (currentState == OBSTACLE_AVOIDING) btPrint("MODE: AVOIDING");
   else if (currentState == REVERSING)   btPrint("MODE: REVERSING");
+#if PARK_ENABLED
+  else if (currentState == PARK_PASS)    btPrint("MODE: PARK_PASS");
+  else if (currentState == PARK_ARC_IN)  btPrint("MODE: PARK_ARC_IN");
+  else if (currentState == PARK_ARC_OUT) btPrint("MODE: PARK_ARC_OUT");
+#endif
 
 
   btPrint(" | L: "); btPrint(currentLeftDist); btPrint("cm");
@@ -613,12 +708,21 @@ while (Serial.available()) {
         for (unsigned int i = 0; i < tok.length(); i++) { if (!isDigit(tok[i])) { numeric = false; break; } }
         if (numeric) {
           lastMagX = tok.toInt();
-          lastMagH = serialBuffer.substring(c1 + 1).toInt();
+          int c2 = serialBuffer.indexOf(',', c1 + 1);   // v3: MAG,cx,h,w — w appended LAST,
+          if (c2 > c1) {                                 // so this 2-field parse stays correct
+            lastMagH = serialBuffer.substring(c1 + 1, c2).toInt();
+            lastMagW = serialBuffer.substring(c2 + 1).toInt();
+          } else {
+            lastMagH = serialBuffer.substring(c1 + 1).toInt();
+            lastMagW = -1;
+          }
           lastMagMs = millis();
           static unsigned long lastMagPrint = 0;
           if (millis() - lastMagPrint >= 1000) {
             lastMagPrint = millis();
-            btPrint("[mag] cx="); btPrint(lastMagX); btPrint(" h="); btPrintln(lastMagH);
+            btPrint("[mag] cx="); btPrint(lastMagX);
+            btPrint(" h="); btPrint(lastMagH);
+            btPrint(" w="); btPrintln(lastMagW);
           }
         }
       }
@@ -689,6 +793,97 @@ if ((currentState == OBSTACLE_AVOIDING || currentState == REVERSING) &&
   float currentHeading = getSmoothedHeading();
 
 
+#if PARK_ENABLED
+  // ── PARK ARMING. Turn 12 complete => the vehicle is re-entering the STARTING
+  // section, which is where the lot always is (rule 8d). The stepped-target chain
+  // makes straightTargetHeading the wall-parallel cardinal of this leg for free.
+  if (!parkArmed && currentState == DRIVING_STRAIGHT && totalTurnsCount >= MAX_TURNS) {
+    parkArmed      = true;
+    parkArmedMs    = millis();
+    parkTurnsAtArm = totalTurnsCount;
+    parkLotOnRight = lockedDirectionLeft;   // left-turn (CCW) round => outer wall on the right
+    parkRefHeading = straightTargetHeading;
+    btPrint("[park] armed lotOnRight="); btPrint(parkLotOnRight ? 1 : 0);
+    btPrint(" ref="); btPrintln(parkRefHeading);
+  }
+
+  // ── FALLBACKS. Every abort is a plain stop: rule 9.24.4 ends the round on a stop
+  // after 3 laps (points banked), while touching a limiter scores zero (9.24.7).
+  if (parkArmed && currentState != ROBOT_STOPPED) {
+    if (millis() - parkArmedMs > PARK_TOTAL_MS)                       parkStop("total time cap");
+    else if (totalTurnsCount > parkTurnsAtArm + PARK_MAX_EXTRA_TURNS) parkStop("left the lot section");
+    else if (magPassages == 0 && !magEstablished &&
+             millis() - parkArmedMs > PARK_MAG_WAIT_MS &&
+             currentState == DRIVING_STRAIGHT &&
+             lunaValid(currentCenterDist) && currentCenterDist < 165) parkStop("no limiter seen - legacy wall stop");
+    if (currentState == ROBOT_STOPPED) return;
+  }
+
+  // ── LIMITER PASSAGES. The picker reports ONE magenta box, so the pair reads as two
+  // sequential acquisitions: established -> close (h >= MAG_NEAR_H) -> lost = passed
+  // abeam. Tracked only while DRIVING_STRAIGHT; a passage completing mid-avoidance is
+  // seen late or missed, and the fallbacks price that in.
+  if (parkArmed && currentState == DRIVING_STRAIGHT) {
+    if (magFresh()) {
+      if (!magEstablished) {
+        magEstablished = true;
+        magMaxH = lastMagH;
+        magHandoffStreak = 0;
+        btPrint("[park] limiter acquired h="); btPrintln(lastMagH);
+      }
+      if (lastMagH > magMaxH) magMaxH = lastMagH;
+      if (lastMagH >= MAG_NEAR_H) magCloseSeen = true;
+      // Near->far HANDOFF: the picker reports ONE box, so when the near limiter exits
+      // frame while the far one is already confirmed, freshness never lapses and the
+      // dropout path below cannot fire - the passage shows up as an h collapse instead.
+      // Two consecutive sub-ratio samples (~400 ms at 5 Hz) reject single-frame noise.
+      if (magCloseSeen && lastMagH < (int)(magMaxH * MAG_HANDOFF_RATIO)) {
+        if (++magHandoffStreak >= 2) {
+          magCloseSeen     = false;
+          magMaxH          = lastMagH;
+          magHandoffStreak = 0;
+          magPassages++;
+          magPassageMs = millis();
+          btPrint("[park] passage "); btPrint(magPassages); btPrintln(" (handoff)");
+          if (magPassages >= 2) {
+            parkSoloPass = false;
+            parkPhaseMs  = millis();
+            currentState = PARK_PASS;
+            btPrintln("[park] PASS (both limiters)");
+          }
+        }
+      } else {
+        magHandoffStreak = 0;
+      }
+    } else if (magEstablished && millis() - lastMagMs > MAG_LOST_MS) {
+      magEstablished = false;
+      magMaxH = 0;
+      magHandoffStreak = 0;
+      if (magCloseSeen) {
+        magCloseSeen = false;
+        magPassages++;
+        magPassageMs = millis();
+        btPrint("[park] passage "); btPrintln(magPassages);
+        if (magPassages >= 2) {
+          parkSoloPass = false;
+          parkPhaseMs  = millis();
+          currentState = PARK_PASS;
+          btPrintln("[park] PASS (both limiters)");
+        }
+      }
+    }
+    // Far limiter never re-acquired (merged blob at distance, or missed): commit on the
+    // near passage alone with the longer clearance run.
+    if (currentState == DRIVING_STRAIGHT &&
+        magPassages == 1 && !magEstablished &&
+        millis() - magPassageMs > MAG_SECOND_WAIT_MS) {
+      parkSoloPass = true;
+      parkPhaseMs  = millis();
+      currentState = PARK_PASS;
+      btPrintln("[park] PASS (solo passage)");
+    }
+  }
+#else
   // 2026-08-11: stop check now gated on DRIVING_STRAIGHT — it previously ran in every
   // state, so after lap 3 a pillar at <165 cm (or a mid-swerve diagonal wall sighting)
   // stopped the bot yawed, mid-avoidance, instead of settled on the final straight. A
@@ -700,6 +895,7 @@ if ((currentState == OBSTACLE_AVOIDING || currentState == REVERSING) &&
     currentState = ROBOT_STOPPED;
     return;
   }
+#endif
 
 
   if (currentState == DRIVING_STRAIGHT) {
@@ -738,6 +934,56 @@ if ((currentState == OBSTACLE_AVOIDING || currentState == REVERSING) &&
   else if (currentState == TURNING) {
     executeTurnMode(currentHeading);
   }
+#if PARK_ENABLED
+  else if (currentState == PARK_PASS) {
+    // Heading-held straight run so the REAR AXLE clears the far limiter before the arc.
+    // The outer-wall lane is pillar-free here (Fig 8e moves this section's signs to the
+    // inner wall) and side rules are off post-lap-3 anyway (App A sec.5). parkArmed pins the speed.
+    driveStraightMode(currentHeading);
+    if (millis() - parkPhaseMs > (parkSoloPass ? PARK_PASS_SOLO_MS : PARK_PASS_MS)) {
+      parkPhaseMs  = millis();
+      currentState = PARK_ARC_IN;
+      btPrint("[park] ARC_IN dyaw="); btPrintln(parkYawDelta());
+    }
+  }
+  else if (currentState == PARK_ARC_IN) {
+    // Reverse, full lock TOWARD the wall: the tail swings into the lot. Exits on the
+    // cut-in angle; the wall-side Luna (diagonal, best-effort on black) and the time
+    // cap both cut the arc short — proceeding to ARC_OUT is always the safe branch.
+    finalServoAngle = fullLockToward(parkLotOnRight);
+    steeringServo.write(finalServoAngle);
+    setMotorOutput(BACKWARD_SPEED);
+    float d = parkYawDelta();
+    int16_t w = parkWallDist();
+    static unsigned long lastArcLog = 0;
+    if (millis() - lastArcLog >= 200) { lastArcLog = millis();
+      btPrint("[park] in dyaw="); btPrint(d); btPrint(" wall="); btPrintln(w); }
+    if (fabs(d) >= PARK_CUT_IN_DEG ||
+        (lunaValid(w) && w < PARK_WALL_NEAR_CM) ||
+        millis() - parkPhaseMs > PARK_ARC_IN_MS) {
+      parkPhaseMs  = millis();
+      currentState = PARK_ARC_OUT;
+      btPrint("[park] ARC_OUT dyaw="); btPrintln(d);
+    }
+  }
+  else if (currentState == PARK_ARC_OUT) {
+    // Still reversing, counter lock: tail settles along the wall, nose swings in.
+    // Aligned-within-tolerance is the parked exit; wall floor and time cap stop short
+    // (a crooked stop in the lot is still 7 points, rule 1.8.3).
+    finalServoAngle = fullLockToward(!parkLotOnRight);
+    steeringServo.write(finalServoAngle);
+    setMotorOutput(BACKWARD_SPEED);
+    float d = parkYawDelta();
+    int16_t w = parkWallDist();
+    static unsigned long lastArcLog2 = 0;
+    if (millis() - lastArcLog2 >= 200) { lastArcLog2 = millis();
+      btPrint("[park] out dyaw="); btPrint(d); btPrint(" wall="); btPrintln(w); }
+    if (millis() - parkPhaseMs > PARK_ARC_MIN_MS &&
+        fabs(d) <= PARK_ALIGNED_DEG)                    parkStop("PARKED - attempt complete");
+    else if (lunaValid(w) && w < PARK_WALL_STOP_CM)     parkStop("wall floor");
+    else if (millis() - parkPhaseMs > PARK_ARC_OUT_MS)  parkStop("arc-out cap");
+  }
+#endif
 
 
   static uint8_t telemetryDiv = 0;   // A12: telemetry every 5th loop — a full line costs ~10 ms of serial time
