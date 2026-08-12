@@ -207,15 +207,28 @@ axle interface that sheds under load; when the printed chassis lands with a
 before/after drive test, it becomes the drivetrain's first test-caused design
 change - and puts committable CAD in `models/`.
 
-**Superseded 2026-08-10: the rebuild is cancelled — this chassis is final.**
-How retention was resolved on this frame is not recorded; what is on record is
-that it now holds: the two 2026-08-09 Round-1 runs are 28 s and 29 s of
-continuous driving with no wheel loss
+**Superseded 2026-08-10: the *printed* rebuild is cancelled — it was not needed.**
+Retention was resolved instead by a **ground-up redesign of the LEGO space-frame
+itself**, built structurally tighter and more rigid than the first layout (the
+same redesign recorded in [`models/README.md`](../models/README.md), which
+replaced an initial layout that could not package motor and battery together,
+carried too high a centre of mass, and would not hold a curve). The wheels were
+never the root cause: a frame that flexes under drive torque works the axle
+interface loose, and stiffening the frame removed the load path that was
+shedding them.
+
+The before/after is the test that changed the design, and it is on record: the
+failure was seconds of sustained drive on 2026-08-06; the two 2026-08-09 Round-1
+runs on the redesigned frame are 28 s and 29 s of continuous driving with no
+wheel loss
 ([`other/test-runs-2026-08-09-round1/`](../other/test-runs-2026-08-09-round1/)),
-roughly six times the failure duration observed on 2026-08-06. The
-committable-CAD path narrows to the printed mounts already on the vehicle
-(3x TF-Luna, servo, N20 — the `models/` gate); there is no chassis CAD because
-there is no printed chassis. Residual gates: one full three-lap run, and the
+roughly **six times** the failure duration. Every run and every committed
+artifact since then is on this frame, and it is final.
+
+Because the answer was a LEGO redesign rather than a printed one, the
+committable CAD is the LEGO design file plus the printed mounts the frame
+carries (3× TF-Luna, servo, N20), not a chassis STL — there is no printed
+chassis and there never was. Residual gates: one full three-lap run, and the
 wall-strike stall case.
 
 **Impact path (answered 2026-08-06):** there is no sacrificial element and no

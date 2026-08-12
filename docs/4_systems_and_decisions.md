@@ -211,19 +211,31 @@ calibrated magenta class and reports bay sightings as telemetry
 (§4.2). The park controller is still unwritten: detection exists, behaviour
 does not.
 
-### D8 - Chassis: rebuild from LEGO hybrid to fully 3D-printed (2026-08-06)
+### D8 - Chassis: rebuild the frame after the wheel-shed failure (2026-08-06), resolved as a LEGO redesign (2026-08-09/10)
 
 Driver: the first observed mechanical failure - under sustained drive the
 LEGO-mounted wheels shed from their axles within seconds (1 - Mobility,
-section 3). Retention options inside the LEGO system do not survive drive
-torque, so the fix chosen is frame-level: a printed chassis with proper hubs
-and axle retention. Secondary payoffs, stated up front so they cannot be
-claimed as afterthoughts: the rebuild produces the CAD/STL set this repo
-currently lacks, and it converts the failure into a documented, test-caused
-design iteration. Risk accepted: printing, assembly and re-tuning must fit
-inside the pre-competition window, and until the new frame passes the same
-sustained-drive test that killed the old one, the LEGO configuration remains
-the vehicle of record.
+section 3). The fix chosen was frame-level rather than a retention patch at the
+axle, on the reasoning that a frame flexing under drive torque is what works an
+axle interface loose. **The option first written down was a fully 3D-printed
+chassis** with proper hubs and axle retention.
+
+**Outcome (2026-08-09/10): the printed rebuild was not needed and was cancelled.**
+A ground-up redesign of the LEGO space-frame itself - structurally tighter and
+more rigid than the first layout, and the same redesign recorded in
+`models/README.md` - passed the sustained-drive test that killed the original:
+**seconds to failure on 2026-08-06 became 28 s and 29 s of continuous driving
+with no wheel loss on 2026-08-09, roughly six times the duration.** Every run
+and every committed artifact since is on that frame.
+
+Two things this decision is worth reading for. First, the frame-level diagnosis
+was right and the *specific implementation* first chosen was wrong - fixing the
+stiffness was what mattered, not the material, and the cheaper option turned out
+to be sufficient. Second, one of D8's stated secondary payoffs does not
+materialise: a LEGO answer produces a LEGO design file rather than a chassis
+STL, so the CAD this repo commits is the design file plus the printed mounts the
+frame carries, not a printed chassis. That payoff was claimed up front precisely
+so that failing to deliver it would be visible here rather than quietly dropped.
 
 ## 3. Risk register
 
