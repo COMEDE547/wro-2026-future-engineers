@@ -6,22 +6,20 @@ they exist so the multimeter session has sanity bands and so the measured
 column lands next to the prediction it confirms or refutes. The measured
 column fills only from meter readings — first entry 2026-08-12 (row 1).
 
-## ⚠ Two discrepancies to resolve ON THE VEHICLE before this file is trusted
+## Two discrepancies — RESOLVED on the vehicle 2026-08-11 (record kept)
 
-1. **Pack capacity conflict.** [2 — Power](2_power_and_sensors.md) §6 records
-   the pack as **2600 mAh** (read off hardware 2026-08-06); the team stated
-   **2200 mAh 60C** on 2026-08-11. Read the physical label and correct
-   whichever is wrong — runtime math moves 18% between them. This file assumes
-   **2200 mAh / 60C** pending the label read. → **Label says: ______**
-2. **Topology conflict.** §6's as-wired tree (2026-08-06): pack → buck →
-   ESP32 → servo (servo through the ESP32 5 V chain — a named §5 failure
-   point), Pi through an unconfirmed regulator. The 2026-08-11 circuit diagram
-   (`schemes/circuit_diagram_complete_2026-08-11.jpg`) shows a different
-   topology: servo + 3× Luna on Buck-2 directly, ESP32 from Pi USB, Pi via a
-   fast-charging module. **Trace the physical wiring once and reconcile all
-   three** (diagram, §6 prose, vehicle). If the rework happened, §5's failure
-   point becomes a documented *fixed* failure point — record the date.
-   → **As-built topology is: ______**
+1. **Pack capacity.** The 2026-08-06 note recorded 2600 mAh; the label was
+   re-read on 2026-08-11 — the misread is corrected in
+   [2 — Power](2_power_and_sensors.md) §6 and [1 — Mobility](1_mobility.md).
+   This file's math already assumed the correct value.
+   → **Label says: 2200 mAh, 60C** (read 2026-08-11).
+2. **Topology.** The rework is real and confirmed on the vehicle: §5's
+   servo-through-ESP32-chain failure point is FIXED (dated 2026-08-11), and
+   §6 plus `schemes/circuit_diagram_complete_2026-08-11.jpg` now describe
+   the as-built tree.
+   → **As-built topology is:** pack → fast-charging module → Pi 5; ESP32 from
+   a Pi USB port; pack → Buck-2 → 3× TF-Luna + servo **power** (signal only
+   from the ESP32); pack → TB6612 VM → N20.
 
 ## Predicted vs measured
 

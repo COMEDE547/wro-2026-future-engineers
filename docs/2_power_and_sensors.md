@@ -21,7 +21,7 @@ steering loop — risk R7.
 | **BNO055** 9-DOF IMU | 1 | I2C `0x28`, mux ch4 | Absolute Euler yaw, 0-360 deg | MPU6050 — see below |
 | **TF-Luna** LiDAR | 3 | I2C `0x10`, mux ch0/1/2 | Distance, left / centre / right | HC-SR04 — see below |
 | **HC-SR04** ultrasonic | 3 | GPIO, interrupt-driven | Distance, front / left / right | *Retained as an alternative prototype, not the primary stack* |
-| **Camera** | 1 | USB UVC webcam | Pillar colour and bearing | ~~Lenovo 300 FHD (identified 2026-08-06)~~ **OMO/WCAM/11 (team correction 2026-08-08, landed 2026-08-10)**; 30 fps ceiling until a CSI module is fitted |
+| **Camera** | 1 | USB UVC webcam | Pillar colour and bearing | **Lenovo 300 FHD** (read off the unit 2026-08-11; `OMO/WCAM/11` is the team's designation for the same unit, recorded 2026-08-08 and briefly carried here as the model name); 30 fps ceiling until a CSI module is fitted |
 | **PCA9548A** mux | 1 | I2C `0x70` | 8-channel I2C fan-out | Mandatory — see address collision below |
 
 ### Why absolute-heading IMU over gyro integration
@@ -127,10 +127,12 @@ mat: the near pillar's base sits low in the frame, the far pillar's base sits
 just under the horizon. Base row is the range proxy.*
 
 **Resolved (2026-08-05): the fitted camera is a USB UVC webcam** (MJPEG,
-640 x 480 @ 30 fps). ~~Identified 2026-08-06: Lenovo 300 FHD.~~ **Corrected
-2026-08-10 to OMO/WCAM/11** — the team flagged the model on 2026-08-08 and the
-docs lagged; the committed `docs/eval_raw/` JSON from the 08-08 measurement
-retains the old name as a frozen artifact of that run. Consequence: the
+640 x 480 @ 30 fps). Identified 2026-08-06 as a Lenovo 300 FHD; on 2026-08-08 the team recorded
+the unit's designation **OMO/WCAM/11**, which these docs briefly carried as the
+model name (2026-08-10). The 2026-08-11 read off the unit settles it: the
+hardware is a **Lenovo 300 FHD**, `OMO/WCAM/11` is the team's designation for
+that same unit. The committed `docs/eval_raw/` JSON from the 08-08 measurement
+retains the designation as a frozen artifact of that run. Consequence: the
 high-frame-rate CSI capture path is gated on purchasing a CSI module, so 30 fps
 is the current ceiling. Field of view — and therefore the pixel budget per
 pillar at a given range — is pending a datasheet read verified against a
@@ -184,7 +186,7 @@ calibrated status rather than on a fixed startup delay.
 | TF-Luna returns a stale register | Value unchanged across N consecutive reads while the vehicle is moving | Not yet implemented — planned staleness counter per channel |
 | BNO055 loses magnetometer calibration mid-run | Calibration status register drops | Not yet implemented — planned; degrade to last-good target heading rather than to a bad one |
 | Detector process dies | No pass-side call arrives | **Handled by architecture** — steering continues on last heading target (R7) |
-| Detector reports low confidence | Confidence below 0.45 | **Handled** — hold course, which is recoverable |
+| Vision yields no committed pass-side call | The operative picker's no-call path: colour-coverage gate + 5-of-7 temporal vote not met (see [3 — Software §4.1](3_software.md)) | **Handled** — hold course, which is recoverable |
 | Servo stall current drawn through the ESP32's 5 V chain (as wired 2026-08-06: pack -> buck -> ESP32 -> servo) | ESP32 brownout / reset under steering load | **FIXED by rework, confirmed on the vehicle 2026-08-11** — servo power now comes from Buck-2 directly, signal only from the ESP32; see §6 and `schemes/circuit_diagram_complete_2026-08-11.jpg` |
 | Pi 5 undervoltage — its 5 V / 5 A requirement fed from the shared 3S pack through a regulator of unconfirmed rating | Pi throttle flag / lightning-bolt, SD corruption risk | Not yet implemented — verify the regulator rating before any sustained run |
 

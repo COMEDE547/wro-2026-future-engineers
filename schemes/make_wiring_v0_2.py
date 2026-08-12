@@ -2,6 +2,12 @@
 # Generates wiring-v0.2.png / .pdf - signal + power, single page.
 # v0.1 (2026-08-05) drew signal only and deliberately left the power tree
 # undrawn "pending battery selection". The pack was read off the hardware on
+# HISTORICAL ARTIFACT (frozen 2026-08-12): reproduces the 2026-08-10 render of
+# the as-wired 2026-08-06 state. Two label facts were later corrected — pack is
+# 2200 mAh 60C (2600 was a misread, re-read 2026-08-11) and the servo rail was
+# reworked onto Buck-2 (2026-08-11). Deliberately NOT updated: the committed
+# render/script pair stays byte-reproducible. Current diagram:
+# circuit_diagram_complete_2026-08-11.jpg. See schemes/README.md.
 # 2026-08-06 (3S 11.1 V 2600 mAh, DC-jack) and the dual-rail buck was
 # identified from the top v-photo on 2026-08-10, so v0.2 draws the tree and
 # labels every remaining unknown as TBD instead of guessing.

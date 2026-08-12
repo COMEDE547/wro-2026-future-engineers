@@ -23,7 +23,7 @@ METHOD (important - read before quoting any number)
 
 WHAT THIS DOES NOT MEASURE
     * Venue performance. The dataset was shot on a different camera and lighting
-      than the OMO/WCAM/11 on the robot; the race procedure recalibrates on
+      than the robot's Lenovo 300 FHD (team designation OMO/WCAM/11); the race procedure recalibrates on
       the day. These numbers validate the METHOD on labelled data, not the venue.
     * The 5-of-7 temporal vote. Still images cannot exercise it, so every
       false-alarm number here is a per-frame figure and therefore CONSERVATIVE
@@ -392,7 +392,7 @@ def main():
         "arm_b_condition_matched_calibration": matched_calib,
         "caveats": [
             "Calibration fitted on train split only; val never used to fit.",
-            "Dataset camera and lighting differ from the robot's OMO/WCAM/11; "
+            "Dataset camera and lighting differ from the robot's Lenovo 300 FHD; "
             "the race procedure recalibrates on the day. Validates method, not venue.",
             "Single images cannot exercise the 5-of-7 temporal vote, so the "
             "false-alarm figures are per-frame and conservative vs runtime.",

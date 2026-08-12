@@ -24,4 +24,4 @@ pessimistic proxy. It is a single frame and proves nothing on its own — the
 proper measurement is a logged run against real footage, which is why it is
 described here as an indication rather than a result.
 
-The camera visible in `bench-4`/`bench-5` is the lab unit `OMO/WCAM/11`.
+The camera visible in `bench-4`/`bench-5` is the lab unit `OMO/WCAM/11` (a Lenovo 300 FHD).

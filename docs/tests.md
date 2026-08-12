@@ -17,7 +17,7 @@ test that has not been executed.
 | **T4** Deploy-graph parity | Desktop | No | Every ONNX export |
 | **T5** On-target latency + thermal | Raspberry Pi 5 | Yes | Before any Pi latency claim |
 | **T6** Firmware bench | ESP32 + sensors | Yes | Every firmware change |
-| **T7** Track | Full vehicle | Yes | Blocked — no drivetrain |
+| **T7** Track | Full vehicle | Yes | **Unblocked 2026-08-08** — drive integrated; six recordings in `other/`; logged run-to-stop pending |
 
 ---
 
@@ -144,13 +144,18 @@ implementation from a level test, and a level test spins the vehicle.
 
 ---
 
-## 8. T7 — Track — **blocked**
+## 8. T7 — Track — **unblocked 2026-08-08**
 
-Requires a drivetrain. See [1 — Mobility](1_mobility.md).
+The drivetrain is integrated ([1 — Mobility](1_mobility.md)) and the vehicle
+drives: six test recordings are committed under [`other/`](../other) — the
+2026-08-08 pair, the 2026-08-09 speed pair, and the 2026-08-09 Open-Challenge
+controlled pair. None yet captures a complete run through the autonomous stop,
+and **no serial-telemetry log has ever been recorded** — the first logged
+run-to-stop (`tools/serial_log.py`) is the release-blocking T7 result.
 
-Planned: repeated corner-exit runs measuring understeer at the chosen speed, and
-a full three-lap Open Challenge run. The corner-exit test is the one expected to
-change the mechanical design.
+Still planned: repeated corner-exit runs measuring understeer at the chosen
+speed, and a full three-lap Open Challenge run. The corner-exit test is the one
+expected to change the mechanical design.
 
 ---
 
