@@ -111,6 +111,11 @@
 // measure the distance, then EXIT_FWD_MS_MAX ~= 8 cm / (cm per second) * 1000.
 #define EXIT_FWD_MS_MAX   400    // time cap per forward leg (~8 cm at an assumed ~20 cm/s)
 #define EXIT_REV_MS       350    // per reverse leg — BLIND (no rear sensor), keep it < fwd
+#define EXIT_REV_FRAC     0.85f  // and never reverse further than the forward leg just went:
+                                 // the rear STARTS touching the back wall, so the only room
+                                 // behind the bot is what the last forward leg created. A
+                                 // fixed reverse time rams that wall whenever the forward leg
+                                 // exited early (heading gate or front guard).
 #define EXIT_FRONT_STOP_CM (BAY_GAP_CM * 0.55f)   // ~6.3 cm — last-resort front guard.
                                  // ⚠ MUST stay well BELOW BAY_GAP_CM: a value above the gap
                                  // (the old 15 vs 13/11.5) breaks the forward leg on its very
@@ -403,6 +408,11 @@ void bayExit() {
 
   const int lockOut  = (EXIT_DIR > 0) ? SERVO_MAX_ANGLE : SERVO_MIN_ANGLE;
   const int lockBack = (EXIT_DIR > 0) ? SERVO_MIN_ANGLE : SERVO_MAX_ANGLE;
+  // ⚠ The servo travel is ASYMMETRIC about centre: +30 deg to SERVO_MAX (136),
+  // -42 deg to SERVO_MIN (64). So the forward and reverse arcs do NOT share a
+  // turning radius, and which one is tighter FLIPS with EXIT_DIR. Expect the
+  // shuffle to rotate faster in one direction than the other, and re-time the
+  // legs after changing EXIT_DIR rather than assuming they carry over.
 
   for (int i = 0; i < EXIT_MAX_CYCLES; i++) {
     // forward arc toward the track
@@ -416,17 +426,21 @@ void bayExit() {
       if (validDist(f) && f < EXIT_FRONT_STOP_CM) break;   // front bay wall
       delay(LOOP_DELAY_MS);
     }
+    unsigned long fwdRan = millis() - t0;      // how far the forward leg ACTUALLY got
     motorBrake();
     delay(80);
     if (wrap180(readHeading() - ref) * (EXIT_DIR) >= EXIT_HEADING_DEG) break;
 
     // reverse arc, opposite lock — rotation continues the same way.
-    // BLIND: no rear sensor exists; EXIT_REV_MS must stay short.
+    // BLIND: no rear sensor exists. Bound by the room the forward leg just made,
+    // NOT by a fixed time: the rear began flush against the back wall.
+    unsigned long revCap = (unsigned long)(fwdRan * EXIT_REV_FRAC);
+    if (revCap > EXIT_REV_MS) revCap = EXIT_REV_MS;
     servo.write(lockBack);
     delay(120);
     setMotor(-EXIT_SPEED);
     t0 = millis();
-    while (millis() - t0 < EXIT_REV_MS) {
+    while (millis() - t0 < revCap) {
       if (wrap180(readHeading() - ref) * (EXIT_DIR) >= EXIT_HEADING_DEG) break;
       delay(LOOP_DELAY_MS);
     }
