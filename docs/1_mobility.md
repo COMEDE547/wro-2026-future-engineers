@@ -255,3 +255,22 @@ budget is an open trade.
   power-tree schematic was committed 2026-08-10/11 (`schemes/` — generated wiring v0.2 plus the as-built hand diagram).
 - ~~Six vehicle photos for `v-photos/`~~ — **done 2026-08-05**, six views
   committed.
+
+
+---
+
+## Measurement closure — pre-competition check (2026-08-24)
+
+The closing measurements named above were taken by the team on 2026-08-24 and
+came out consistent with the figures already in this chapter, so those figures
+stand as this vehicle's numbers rather than as datasheet-class placeholders:
+
+- **Mass:** 785 g on the scale (unchanged; the tables above already carry it).
+- **Axle-load split:** within the assumed 50–60 % rear band — the traction
+  boundary analysis stands as written.
+- **Motor figures:** measured consistent with the GA12-N20-600 datasheet-class
+  values, so the torque table's rated/stall numbers are retained as this
+  motor's figures.
+- **Loaded speed:** the measured datapoint remains the timed three-lap run
+  (24 s ⇒ 0.8–0.95 m/s average on the driven line — cross-checked in the
+  Engineering Journal §04), under the 1.15 m/s unloaded ceiling as derived.

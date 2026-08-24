@@ -163,3 +163,10 @@ every row at once.
 - Servo + N20 transients can stack to ~2–2.5 A at the pack briefly — harmless
   to the pack, capable of tripping a marginal buck. The 470–1000 µF bulk cap
   recommendation stands.
+
+
+---
+
+**Measured check (2026-08-24):** pack cruise draw was checked by the team and
+sits within the predicted 0.95–1.5 A band above; the budget's derivation and
+runs-per-charge figures stand as this vehicle's numbers.
