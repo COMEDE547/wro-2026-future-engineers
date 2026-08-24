@@ -1,5 +1,13 @@
 # 3 — Software Architecture & Obstacle Strategy
 
+> **Status (2026-08-24).** The Round 2 configuration flashed at Nationals is
+> [`src/Round 2/competition/`](../src/Round%202/competition/) — PID heading hold with a
+> staged PAUSE→PASS→SIDE→YAW-BACK pass on the ESP32 (`test.cpp`), and a 2-class
+> green/red ONNX detector with a 5-of-7 vote and 7-column offset LUT on the Pi
+> (`detecttor.py`); see that folder's README and the Engineering Journal §08.
+> The pipeline described below is the documented evolution that produced it and
+> is retained as engineering history.
+
 Two processors, one rule: **motion must never wait on perception.**
 
 | Processor | Runs | Rate | Fails how |
