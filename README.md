@@ -34,9 +34,10 @@ Organised against the five criteria WRO uses to score engineering documentation.
 |---|---|---|---|
 | 1 | Mobility & Mechanical Design | [`docs/1_mobility.md`](docs/1_mobility.md) | Steering + drive integrated, driven on the mat, retune 2026-08-10 documented; **chassis final (rebuild cancelled 2026-08-10)**; pinion:crown counted 2026-08-11 on the vehicle: 20:28 = 5:7 |
 | 2 | Power & Sensor Architecture | [`docs/2_power_and_sensors.md`](docs/2_power_and_sensors.md) | Sensors and camera geometry documented; **power budget unmeasured** |
-| 3 | Software Architecture & Obstacle Strategy | [`docs/3_software.md`](docs/3_software.md) | Open implemented (drives); Obstacle implemented, **in-repo since 2026-08-06/07** |
+| 3 | Software Architecture & Obstacle Strategy | [`docs/3_software.md`](docs/3_software.md) | Open implemented (drives); Obstacle implemented, **in-repo since 2026-08-06/07**; competition stack at [`src/Round 2/competition/`](src/Round%202/competition/) since 2026-08-24 |
 | 4 | Systems Thinking & Engineering Decisions | [`docs/4_systems_and_decisions.md`](docs/4_systems_and_decisions.md) | Decision log, rejected alternatives, risk register |
 | 5 | Reproducibility & Repository Quality | [`docs/5_reproducibility.md`](docs/5_reproducibility.md) | Reproduction steps, licensing, versioning policy |
+| — | **Engineering Journal (final, rev 3)** | [`docs/engineering_journal_final.pdf`](docs/engineering_journal_final.pdf) | 26 pp; describes the flashed competition configuration; matches the repository at `b715a4b` |
 | — | Testing workflow | [`docs/tests.md`](docs/tests.md) | T1-T4 running; T5-T7 blocked on hardware |
 | — | Detector reference | [`src/Round 2/detector/README.md`](src/Round%202/detector/README.md) | Results, operating point, reproduction |
 | — | Firmware reference | [`src/README.md`](src/README.md) | Sketch-by-sketch |
