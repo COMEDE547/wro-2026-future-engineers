@@ -9,6 +9,38 @@ original reasoning is kept rather than deleted — the reversal is the useful pa
 
 ---
 
+## 0. Decision — competition Round-2 stack (2026-08-24)
+
+The configuration flashed at Nationals is `src/Round 2/competition/`
+(`test.cpp` + `detecttor.py`). Three decisions, each with its evidence in-repo:
+
+1. **Staged pass instead of a single-shot swerve.** The earlier on-robot offset
+   LUT peaked at 26/36/40/42° and never commanded the full 35° steering lock —
+   the vehicle body clipped cubes on the pass. The competition LUT therefore
+   floors both colours at the full 35°, and the pass is decomposed into stages
+   with independent tunables (400 ms pause at 45 px box height with the steer
+   frozen → wide pass until the cube leaves the frame → straight until the
+   matching side LiDAR confirms it alongside → fixed 28° yaw back). A failure
+   now localises to a stage instead of hiding inside one opaque gain.
+   Evidence: the LUT history comment and constants in
+   `../src/Round 2/competition/detecttor.py`.
+2. **2-class runtime map over the 3-class one.** Magenta marks the parking-lot
+   limiters and never enters the pass-side protocol, so the runtime decodes
+   only green/red (indices 0/1 — identical in both maps) and ignores class 2.
+   The committed weights are unchanged 3-class v2 weights; nothing was
+   retrained to make this choice, and the magenta capability remains available
+   in `../src/Round 2/detector/`. Per-class metrics with committed provenance:
+   `../src/Round 2/competition/eval/`.
+3. **Full PID for Round 2 after rejecting it for Round 1.** Round 1's target
+   heading is deliberately stepped 90° per corner, which winds up an integrator
+   and makes a derivative chatter on quantised yaw — so Round 1 stays P-only.
+   Round 2 holds sustained pass offsets and re-join arcs, a different
+   disturbance profile: `test.cpp` runs Kp 1.5 / Ki 0.02 / Kd 0.15 with the
+   integral hard-clamped at ±50 and the total correction at ±20, so each term's
+   failure mode stays bounded.
+
+---
+
 ## 1. Design constraints
 
 ### Imposed by the rules
