@@ -3,7 +3,7 @@
 Engineering documentation for an autonomous vehicle built for the **World Robot
 Olympiad Future Engineers** category, season **2026**.
 
-> **Team:** TED drive · **Members:** Ethan Fernandes · Tejas Sirikonda · Diaan · **Coach:** Amey Chavan (OMOTEC) · **Country:** India
+> **Team:** TED drive · **Members:** Ethan Fernandes (software) · Tejas Sirikonda (mechanical) · Diaan (electronics) · **Coach:** Amey Chavan (OMOTEC) · **Country:** India
 
 **Contents:** [At a glance](#at-a-glance) · [Documentation index](#documentation-index) · [Repository layout](#repository-layout) · [Quick start](#quick-start) · [Competition artifacts](#competition-artifacts) · [Version history](#version-history) · [Known limits](#known-limits) · [Licence](#licence)
 
