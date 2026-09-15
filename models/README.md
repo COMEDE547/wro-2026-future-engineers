@@ -11,6 +11,7 @@ redistributed here.
 |---|---|
 | `chassis/chassis_lego_current.lxfml` | The LEGO design for the frame the vehicle runs on today — 91 elements, 19 distinct part types |
 | `chassis/chassis_build_instructions.pdf` | 69-step build instructions generated from that model, enough to rebuild the frame from parts |
+| `chassis/chassis_build_instructions_apac_2026-09.pdf` | 71-step build instructions for the frame revised for the WRO Open Championship Asia-Pacific 2026 (added 2026-09-15). The design file export, a refreshed six-view photo set and the `docs/1_mobility.md` update for this revision are **owed**; until they land, the rows above remain the documented frame |
 
 **This is the redesigned frame, not a superseded one.** The first layout could
 not package motor and battery together, carried its mass too high, and would not
