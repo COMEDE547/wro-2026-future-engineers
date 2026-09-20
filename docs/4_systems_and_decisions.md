@@ -1,5 +1,7 @@
 # 4 — Systems Thinking & Engineering Decisions
 
+> **Scope:** the decision log below covers the vehicle up to Nationals (August 2026). Decisions for the September rebuild for APAC 2026 (camera height, weight distribution, drive voltage, new failure points) are in [`apac_2026_vehicle.md`](apac_2026_vehicle.md).
+
 How the vehicle got to its current state: the constraints it must satisfy, the
 decisions taken, the alternatives that were built and then rejected, and the
 risks that remain open.

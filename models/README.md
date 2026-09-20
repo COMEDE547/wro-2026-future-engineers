@@ -9,7 +9,7 @@ redistributed here.
 
 | File | What it is |
 |---|---|
-| `chassis/chassis_build_instructions_apac_2026-09.pdf` | 84-step build instructions for the frame used at APAC 2026. LEGO parts only: the 3D-printed holders for the motor and components are not in it (files to follow). |
+| `chassis/chassis_build_instructions_apac_2026-09.pdf` | 84-step build instructions for the frame used at APAC 2026. LEGO parts only; the printed parts are the same STL files as at Nationals (listed below). |
 
 What changed since Nationals: [`docs/apac_2026_vehicle.md`](../docs/apac_2026_vehicle.md).
 

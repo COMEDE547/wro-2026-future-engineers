@@ -15,6 +15,11 @@ race-ready six-view set will follow.
 | `vehicle-bottom.jpg` | Bottom | LEGO differential, drive shaft from the N20 pinion, steering linkage |
 | `detail/` | — | Two close-ups: chassis mid-section, and the front sensor + camera mount |
 
+Note on labels: in this set, `vehicle-left.jpg` shows the nose to frame-right,
+which by the usual convention is the car's right side, and `vehicle-right.jpg`
+shows its left side. The APAC photos in `apac-2026-09-20/` use the usual
+convention.
+
 ## These replaced an earlier set, and why
 
 The previous six photos were taken **2026-08-05** and showed the vehicle before

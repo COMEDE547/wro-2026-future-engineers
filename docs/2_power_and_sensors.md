@@ -117,9 +117,15 @@ Two consequences follow directly:
    gracefully than one built on box height or box area.
 
 Mounting materially lower would put pillar tops above the horizon, where they
-silhouette against the far wall and the hue band picks up wall colour. Mounting
+silhouette against the far wall and the hue band picks up wall colour. ~~Mounting
 materially higher compresses the difference in base-row between near and far
-pillars, which is exactly the signal the selection rule depends on.
+pillars, which is exactly the signal the selection rule depends on.~~
+**Correction (2026-09-20):** the geometry says the opposite in our range. The
+base-row separation between two pillars grows with lens height up to
+h = √(Z_near · Z_far), 55 cm for pillars at 0.3 m and 1.0 m, so a higher mount
+strengthens the selection signal. What it costs is near-field visibility and a
+view over the 100 mm walls; see
+[APAC 2026 vehicle §4](apac_2026_vehicle.md#4-camera-placement).
 
 ![Camera POV, near pillar](img/camera-pov-near.jpg)
 ![Camera POV, mid-range pillar](img/camera-pov-mid.jpg)
@@ -205,9 +211,11 @@ status is a known gap, not an oversight.
 
 ## 6. Power budget
 
-**Not yet measured. Predicted from datasheets 2026-08-11 — see
-[2a — Predicted power budget](2_power_predicted_budget.md), whose measured
-column stays empty until the multimeter session.** (This section previously
+**Partly measured. Predicted from datasheets 2026-08-11 — see
+[2a — Predicted power budget](2_power_predicted_budget.md). Measured so far:
+pack voltage and motor-terminal PWM on 2026-08-12, and pack cruise current
+checked by the team on 2026-08-24 (inside the predicted band); the per-rail
+current rows are still empty.** (This section previously
 said "deliberately not estimated"; superseded by the cited prediction, which
 exists to give the measurement session sanity bands, not to replace it.)
 
