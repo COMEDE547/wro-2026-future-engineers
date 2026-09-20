@@ -1,7 +1,9 @@
 # Vehicle photos
 
 Six views as required by chapter 7 — every side, plus top and bottom — of the
-vehicle **as it currently is**, photographed 2026-08-11.
+vehicle **as it ran at Nationals**, photographed 2026-08-11. Working photos of the
+September rebuild for APAC 2026 are in [`apac-2026-09-20/`](apac-2026-09-20/); its
+race-ready six-view set will follow.
 
 | File | View | What it shows |
 |---|---|---|
