@@ -5,6 +5,8 @@ Olympiad Future Engineers** category, season **2026**.
 
 > **Team:** TED drive · **Members:** Ethan Fernandes (software) · Tejas Sirikonda (mechanical) · Diaan (electronics) · **Coach:** Amey Chavan (OMOTEC) · **Country:** India
 
+> **Vehicle status (2026-09-20):** the car was rebuilt in September for APAC 2026; what changed is in [`docs/apac_2026_vehicle.md`](docs/apac_2026_vehicle.md). The At-a-glance table and documents 1–5 below describe the Nationals (August 2026) configuration.
+
 **Contents:** [At a glance](#at-a-glance) · [Documentation index](#documentation-index) · [Repository layout](#repository-layout) · [Quick start](#quick-start) · [Competition artifacts](#competition-artifacts) · [Version history](#version-history) · [Known limits](#known-limits) · [Licence](#licence)
 
 ---
@@ -37,6 +39,7 @@ Organised against the five criteria WRO uses to score engineering documentation.
 | 3 | Software Architecture & Obstacle Strategy | [`docs/3_software.md`](docs/3_software.md) | Open implemented (drives); Obstacle implemented, **in-repo since 2026-08-06/07**; competition stack at [`src/Round 2/competition/`](src/Round%202/competition/) since 2026-08-24 |
 | 4 | Systems Thinking & Engineering Decisions | [`docs/4_systems_and_decisions.md`](docs/4_systems_and_decisions.md) | Decision log, rejected alternatives, risk register |
 | 5 | Reproducibility & Repository Quality | [`docs/5_reproducibility.md`](docs/5_reproducibility.md) | Reproduction steps, licensing, versioning policy |
+| — | **APAC 2026 vehicle (September rebuild)** | [`docs/apac_2026_vehicle.md`](docs/apac_2026_vehicle.md) | Changes since Nationals; photos, videos, code and measurements still being added |
 | — | **Engineering Journal (final, rev 3)** | [`docs/engineering_journal_final.pdf`](docs/engineering_journal_final.pdf) | 26 pp; describes the flashed competition configuration; matches the repository at `b715a4b` |
 | — | Testing workflow | [`docs/tests.md`](docs/tests.md) | T1-T4 running; T5-T7 blocked on hardware |
 | — | Detector reference | [`src/Round 2/detector/README.md`](src/Round%202/detector/README.md) | Results, operating point, reproduction |
@@ -133,13 +136,14 @@ Stated here rather than left for a reader to find.
   **Landed 2026-08-06/07** (`src/Round 2/round2.py` + `main.cpp`); this bullet
   was stale until 2026-08-10. [`docs/3_software.md`](docs/3_software.md) remains
   the specification of record.
-- **The camera is a USB UVC webcam** — model **OMO/WCAM/11** (team-identified
+- **The camera is a USB UVC webcam** — a **Lenovo 300 FHD** (read off the unit 2026-08-11; **OMO/WCAM/11** is the team's label for it, first recorded
   2026-08-08); field-of-view and angular-resolution figures are still pending a
   checkerboard measurement, so none is quoted.
-- **The vehicle is built to Round-1 configuration.** The Raspberry Pi 5 and
-  camera are not yet mounted. Drive bring-up (direction, duty, corner tests)
+- ~~**The vehicle is built to Round-1 configuration.** The Raspberry Pi 5 and camera are not yet mounted.~~ Stale since 2026-08-11, when both were mounted (six-view photos).
+  Drive bring-up (direction, duty, corner tests)
   ~~is unfinished~~ happened 2026-08-08/09; the chassis is final (rebuild
-  cancelled 2026-08-10).
+  cancelled 2026-08-10). That was the Nationals car; it was rebuilt for APAC 2026
+  ([`docs/apac_2026_vehicle.md`](docs/apac_2026_vehicle.md)).
 
 ---
 

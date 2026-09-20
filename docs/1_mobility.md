@@ -1,9 +1,11 @@
 # 1 — Mobility & Mechanical Design
 
+> **Scope:** this document describes the Nationals (August 2026) vehicle. The September rebuild for APAC 2026 is in [`apac_2026_vehicle.md`](apac_2026_vehicle.md).
+
 **Honest status: the vehicle is built to its Round-1 configuration — chassis,
 single-servo Ackermann steering, and an N20 drive through a LEGO differential
-are physically fitted, with all three TF-Lunas and the IMU mounted. The
-Raspberry Pi 5 and camera are not yet on the vehicle. The gear-ratio, wheel and
+are physically fitted, with all three TF-Lunas and the IMU mounted.
+~~The Raspberry Pi 5 and camera are not yet on the vehicle.~~ (Stale: both were mounted from 2026-08-11.) The gear-ratio, wheel and
 battery specs are now read off the hardware and the vendor listing (2026-08-06,
 tables below); the working point is still unmeasured, and the first sustained
 drive exposed a wheel-retention failure (§3).** The critical-path gap (risk R10)
