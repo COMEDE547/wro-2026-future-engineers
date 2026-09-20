@@ -52,12 +52,12 @@ The driven rear wheels carry 77 % of the weight, which helps traction. The steer
 |---|---|---|
 | Where the optical axis meets the floor | h / tan α | 117 cm ahead of the lens; about ±10 cm per 1° of angle error |
 | Nearest floor in view | h / tan(α + VFOV/2) | ~29 cm from the lens; the lens sits ~10 cm behind the front wheels, so ~19 cm ahead of them |
-| Separation of pillar bases at 0.5 m and 1.0 m | atan(h / 0.5 m) − atan(h / 1.0 m) | 12.4° (5.6° with the Nationals 10 cm mount) |
+| Separation of pillar bases at 0.5 m and 1.0 m | atan(h / 0.5 m) − atan(h / 1.0 m) | 12.5° (5.6° with the Nationals 10 cm mount) |
 | Tops of walls 1–3 m away | α − atan((h − 10 cm) / D) | 3.6°–9.2° above the image centre |
 
 h = lens height, α = pitch below horizontal, VFOV = vertical field of view, D = distance to the wall.
 
-**Why the camera went up.** Reading range from the image depends on how low a pillar's base sits (the Nationals rule, [2 — Power & Sensors §3](2_power_and_sensors.md)). Raising the lens from ~10 cm to 24.8 cm makes that signal about 2.2 times stronger (12.4° against 5.6° between pillars at 0.5 m and 1.0 m), and the centre of the image now lands ~1.2 m ahead instead of 0.33–0.57 m. The separation keeps growing with height up to h = √(Z_near · Z_far), 55 cm for pillars at 0.3 m and 1.0 m, so the earlier statement in §3 of that document, that a higher mount compresses it, was wrong; it is corrected there.
+**Why the camera went up.** Reading range from the image depends on how low a pillar's base sits (the Nationals rule, [2 — Power & Sensors §3](2_power_and_sensors.md)). Raising the lens from ~10 cm to 24.8 cm makes that signal about 2.2 times stronger (12.5° against 5.6° between pillars at 0.5 m and 1.0 m), and the centre of the image now lands ~1.2 m ahead instead of 0.33–0.57 m. The separation keeps growing with height up to h = √(Z_near · Z_far), 55 cm for pillars at 0.3 m and 1.0 m, so the earlier statement in §3 of that document, that a higher mount compresses it, was wrong; it is corrected there.
 
 **What it costs.**
 
