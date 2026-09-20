@@ -14,8 +14,8 @@
 | Wheels | front 41 mm, rear 55.6 mm | front 45 mm, rear 55 mm (rear tyres chosen for grip); two 30 mm horizontal side rollers | team |
 | Drive motor | N20 gearmotor, 12 V, 600 rpm, via TB6612FNG | 400 rpm gearmotor via TB6612FNG; rated voltage and part number to be confirmed | team |
 | Gearing | 20T pinion → 28T crown on a LEGO differential (5:7) | unchanged | team |
-| Battery | 11.1 V pack | 3S LiPo, 11.1 V, 2200 mAh | team |
-| Power | see [2 — Power & Sensors](2_power_and_sensors.md) | Raspberry Pi 5 from a USB fast-charge module on the pack; 5 V robot rail from a buck converter (TF-Lunas, servo, LEDs); TB6612FNG motor supply straight from the pack; power switch on the battery lead; start button on the rear beams | team, wiring draft |
+| Battery | 3S LiPo, 11.1 V, 2200 mAh | unchanged | team |
+| Power | pack → fast-charge module → Pi 5; pack → buck converter → 5 V rail (TF-Lunas, servo); TB6612FNG from the pack ([2 — Power & Sensors](2_power_and_sensors.md)) | unchanged, plus the WS2812 LEDs on the 5 V rail; power switch on the battery lead; start button on the rear beams | team, wiring draft |
 | Sensors | 3 × TF-Luna on a PCA9548A, BNO055, USB camera | same set; the camera (Lenovo 300 FHD) now sits on top of a rear tower, lens height and tilt to be measured | photos |
 | Lighting | none | 6 × WS2812 LEDs (three 2-LED strips) on the front frame | team, wiring draft |
 

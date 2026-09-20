@@ -1,6 +1,6 @@
 # 2 — Power & Sensor Architecture
 
-> **Scope:** this document describes the Nationals (August 2026) vehicle. The September rebuild for APAC 2026 (3S 2200 mAh LiPo, WS2812 front LEDs, raised camera) is in [`apac_2026_vehicle.md`](apac_2026_vehicle.md).
+> **Scope:** this document describes the Nationals (August 2026) vehicle. The September rebuild for APAC 2026 (same battery and power path, plus WS2812 front LEDs on the 5 V rail and a raised camera) is in [`apac_2026_vehicle.md`](apac_2026_vehicle.md).
 
 ---
 
