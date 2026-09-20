@@ -1,5 +1,7 @@
 # 3 — Software Architecture & Obstacle Strategy
 
+> **Scope:** this document describes the software flashed at Nationals (August 2026). The APAC 2026 code is still to be committed; see [`apac_2026_vehicle.md`](apac_2026_vehicle.md).
+
 > **Status (2026-08-24).** The Round 2 configuration flashed at Nationals is
 > [`src/Round 2/competition/`](../src/Round%202/competition/) — PID heading hold with a
 > staged PAUSE→PASS→SIDE→YAW-BACK pass on the ESP32 (`test.cpp`), and a 2-class

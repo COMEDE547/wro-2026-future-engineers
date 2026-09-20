@@ -1,7 +1,9 @@
 # Vehicle photos
 
 Six views as required by chapter 7 — every side, plus top and bottom — of the
-vehicle **as it currently is**, photographed 2026-08-11.
+vehicle **as it ran at Nationals**, photographed 2026-08-11. Working photos of the
+September rebuild for APAC 2026 are in [`apac-2026-09-20/`](apac-2026-09-20/); its
+race-ready six-view set will follow.
 
 | File | View | What it shows |
 |---|---|---|
@@ -12,6 +14,11 @@ vehicle **as it currently is**, photographed 2026-08-11.
 | `vehicle-top.jpg` | Top | ESP32, buck converter, PCA9548A multiplexer and BNO055 on the deck |
 | `vehicle-bottom.jpg` | Bottom | LEGO differential, drive shaft from the N20 pinion, steering linkage |
 | `detail/` | — | Two close-ups: chassis mid-section, and the front sensor + camera mount |
+
+Note on labels: in this set, `vehicle-left.jpg` shows the nose to frame-right,
+which by the usual convention is the car's right side, and `vehicle-right.jpg`
+shows its left side. The APAC photos in `apac-2026-09-20/` use the usual
+convention.
 
 ## These replaced an earlier set, and why
 

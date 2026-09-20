@@ -1,5 +1,7 @@
 # Electromechanical schematics
 
+**Current: [`wiring_apac_2026.md`](wiring_apac_2026.md)** — power and signal wiring of the September 2026 rebuild for APAC 2026 (WS2812 LEDs on GPIO4, power switch on the battery lead, start button on GPIO32, MEX drive motor), drawn as a Mermaid diagram that GitHub renders. The files below describe the Nationals (August 2026) vehicle.
+
 **`wiring-v0.2.png` / `.pdf` — signal-wiring authority (2026-08-10); its power
 tree is HISTORICAL, superseded by the 2026-08-11 rework recorded in the hand
 diagram below.** Everything v0.1 drew, plus the power tree as identified on

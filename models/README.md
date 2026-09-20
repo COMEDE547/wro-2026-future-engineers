@@ -5,14 +5,22 @@ The vehicle is a **LEGO Technic chassis**; every non-LEGO component is held by a
 parts. Third-party parts used on the vehicle are attributed below and NOT
 redistributed here.
 
-## Chassis — the current frame
+## Chassis — APAC 2026 frame (September rebuild)
 
 | File | What it is |
 |---|---|
-| `chassis/chassis_lego_current.lxfml` | The LEGO design for the frame the vehicle runs on today — 91 elements, 19 distinct part types |
+| `chassis/chassis_build_instructions_apac_2026-09.pdf` | 84-step build instructions for the frame used at APAC 2026. LEGO parts only; the printed parts are the same STL files as at Nationals (listed below). |
+
+What changed since Nationals: [`docs/apac_2026_vehicle.md`](../docs/apac_2026_vehicle.md).
+
+## Chassis — Nationals frame (August 2026)
+
+| File | What it is |
+|---|---|
+| `chassis/chassis_lego_current.lxfml` | The LEGO design for the frame the vehicle ran at Nationals — 91 elements, 19 distinct part types |
 | `chassis/chassis_build_instructions.pdf` | 69-step build instructions generated from that model, enough to rebuild the frame from parts |
 
-**This is the redesigned frame, not a superseded one.** The first layout could
+**This was the redesigned Nationals frame, not the superseded first layout.** The first layout could
 not package motor and battery together, carried its mass too high, and would not
 hold a curve; under drive load it also flexed enough to work the rear axle
 interface loose, and the wheels shed within seconds on 2026-08-06. The answer was
@@ -26,7 +34,7 @@ Because the answer was a LEGO redesign rather than a printed one, the chassis
 artifact here is a design file and a build sequence rather than a chassis STL.
 There is no printed chassis and there never was.
 
-## Team-designed printed parts (as fitted, 2026-08-11)
+## Team-designed printed parts (Nationals vehicle, as fitted 2026-08-11)
 
 | Part | File | Fitted as | Bounding box (mm) | Designed by / in |
 |---|---|---|---|---|
