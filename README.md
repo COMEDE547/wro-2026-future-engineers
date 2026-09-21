@@ -5,7 +5,7 @@ Olympiad Future Engineers** category, season **2026**.
 
 > **Team:** TED drive · **Members:** Ethan Fernandes (software) · Tejas Sirikonda (mechanical) · Diaan (electronics) · **Coach:** Amey Chavan (OMOTEC) · **Country:** India
 
-> **Vehicle status (2026-09-20):** the car was rebuilt in September for APAC 2026; what changed is in [`docs/apac_2026_vehicle.md`](docs/apac_2026_vehicle.md). The At-a-glance table and documents 1–5 below describe the Nationals (August 2026) configuration.
+> **Vehicle status (2026-09-22):** the car was rebuilt in September for APAC 2026; what changed is in [`docs/apac_2026_vehicle.md`](docs/apac_2026_vehicle.md), and the code it runs is in [`src/apac-2026/`](src/apac-2026/). The At-a-glance table and documents 1–5 below describe the Nationals (August 2026) configuration.
 
 **Contents:** [At a glance](#at-a-glance) · [Documentation index](#documentation-index) · [Repository layout](#repository-layout) · [Quick start](#quick-start) · [Competition artifacts](#competition-artifacts) · [Version history](#version-history) · [Known limits](#known-limits) · [Licence](#licence)
 
@@ -36,10 +36,10 @@ Organised against the five criteria WRO uses to score engineering documentation.
 |---|---|---|---|
 | 1 | Mobility & Mechanical Design | [`docs/1_mobility.md`](docs/1_mobility.md) | Steering + drive integrated, driven on the mat, retune 2026-08-10 documented; **chassis final (rebuild cancelled 2026-08-10)**; pinion:crown counted 2026-08-11 on the vehicle: 20:28 = 5:7 |
 | 2 | Power & Sensor Architecture | [`docs/2_power_and_sensors.md`](docs/2_power_and_sensors.md) | Sensors and camera geometry documented; **power budget partly measured** (pack voltage 2026-08-12, cruise current 2026-08-24; per-rail currents not yet) |
-| 3 | Software Architecture & Obstacle Strategy | [`docs/3_software.md`](docs/3_software.md) | Open implemented (drives); Obstacle implemented, **in-repo since 2026-08-06/07**; competition stack at [`src/Round 2/competition/`](src/Round%202/competition/) since 2026-08-24 |
+| 3 | Software Architecture & Obstacle Strategy | [`docs/3_software.md`](docs/3_software.md) | Open implemented (drives); Obstacle implemented, **in-repo since 2026-08-06/07**; Nationals competition stack at [`src/Round 2/competition/`](src/Round%202/competition/) since 2026-08-24; APAC 2026 code at [`src/apac-2026/`](src/apac-2026/) since 2026-09-22 |
 | 4 | Systems Thinking & Engineering Decisions | [`docs/4_systems_and_decisions.md`](docs/4_systems_and_decisions.md) | Decision log, rejected alternatives, risk register |
 | 5 | Reproducibility & Repository Quality | [`docs/5_reproducibility.md`](docs/5_reproducibility.md) | Reproduction steps, licensing, versioning policy |
-| — | **APAC 2026 vehicle (September rebuild)** | [`docs/apac_2026_vehicle.md`](docs/apac_2026_vehicle.md) | Changes since Nationals; photos, videos, code and measurements still being added |
+| — | **APAC 2026 vehicle (September rebuild)** | [`docs/apac_2026_vehicle.md`](docs/apac_2026_vehicle.md) | Changes since Nationals, bench measurements (2026-09-21) and the code in [`src/apac-2026/`](src/apac-2026/); photos and videos still being added |
 | — | **Engineering Journal (final, rev 3)** | [`docs/engineering_journal_final.pdf`](docs/engineering_journal_final.pdf) | 26 pp; describes the Nationals (August 2026) competition configuration; matches the repository at `b715a4b` |
 | — | Testing workflow | [`docs/tests.md`](docs/tests.md) | T1-T4 running; T5-T7 blocked on hardware |
 | — | Detector reference | [`src/Round 2/detector/README.md`](src/Round%202/detector/README.md) | Results, operating point, reproduction |

@@ -1,6 +1,6 @@
 # APAC 2026 vehicle — changes since Nationals
 
-**Status 2026-09-21.** After the WRO India National Championship (26–28 Aug 2026) the vehicle was rebuilt for APAC 2026. This page records what changed and why. Every figure is marked by its basis: *measured* on the vehicle, *team* figure not yet measured, *derived* by calculation from named inputs, or *vendor* specification. Documents 1–5 remain the record of the Nationals configuration.
+**Status 2026-09-22.** After the WRO India National Championship (26–28 Aug 2026) the vehicle was rebuilt for APAC 2026. This page records what changed and why. Every figure is marked by its basis: *measured* on the vehicle, *team* figure not yet measured, *derived* by calculation from named inputs, or *vendor* specification. Documents 1–5 remain the record of the Nationals configuration.
 
 ## 1. Specification
 
@@ -110,7 +110,7 @@ With the Pi's peak treated as its average, a 2200 mAh pack used to 80 % gives ab
 | WS2812 data at the ESP32's 3.3 V | The LED input-high threshold is 0.7 × VDD (3.5 V at 5 V); a marginal signal can flicker or show the wrong colour, tinting the scene | Watch for flicker in the camera image; add a level shifter if seen |
 | 6 V motor on the 11.1 V pack | Heat and brush wear: `SPEED = 210` averages 9.1–10.4 V, above the 6 V rating (§3) | Temperature check after a 3-minute run |
 | Drive motor held against a wall | 1.51 A through the TB6612FNG at stall, above its 1.2 A continuous rating (§5); the driver's thermal shutdown or the motor's heating would stop the car | The Pi's distance logic backs away (escape at 31 % duty for 0.30 s, at least 3 cm of progress, at most 2 attempts); on most surfaces the rear wheels spin before a full stall (§3) |
-| Firmware front stop: the ESP32 stopped the drive motor when the front TF-Luna read under 18 cm | **Observed:** it stopped the car and ended a run (team) | Removed from the firmware on 2026-09-10; collision handling moved to the Pi (§7) |
+| Firmware front stop: the ESP32 stopped the drive motor when the front TF-Luna read under 18 cm or its reading went stale | **Observed:** it stopped the car and ended a run (team) | Removed from the firmware on 2026-09-10; collision handling moved to the Pi (§7) |
 | Camera angle | Pixel-based settings shift if the angle moves | Hinge glued; reference frame before each round |
 | Background above the walls | Off-field red or green objects read as pillars | Search only below the wall band |
 | Blind zone ahead of the wheels | The nearest-pillar rule ties for boxes cut off at the bottom | Tie-break rule in the code |
@@ -129,9 +129,11 @@ Reasons as the team gives them, with the numbers available so far. The before/af
 | Front LEDs | fewer colour mistakes | — |
 | Front stop removed from the firmware (2026-09-10) | stopping the drive motor ends a competition run, and it ended one | collision handling now on the Pi's distance logic (§6) |
 
+**The 2026-09-10 front-stop decision.** The firmware used to stop the drive motor when the front TF-Luna read under 18 cm (released at 24 cm) or when its reading went stale, and that stop ended a run. On 2026-09-10 `forwardHardStopIsActive()` was changed to return `false`, with the comment "Disabled: stopping the drive motor here ends a competition run". Collisions are now handled on the Pi: back away at speed 80 for 0.30 s, require at least 3 cm of progress, at most 2 attempts, release at 30 cm. The team kept the earlier versions as backups, which are not committed: `obstacle-challenge-final-code_withLED.ino.before-remove-front-brake-20260910.bak` (MD5 `a0f20dd94d2dce1a27c2fc72e3700922`) and `obstacle-challenge-final-code_withLED.ino.before-parking-override-20260910.bak` (MD5 `c93dd67690d2153980442369aa3df41d`). The same day added a `PARKING_OVERRIDE_ON` serial command to the firmware; `main.py` never sends it, so it has no effect in a run.
+
 ## 8. ESP32 pin map
 
-From the Nationals firmware ([`round2_ino.ino`](../src/Round%202/round2_ino/round2_ino.ino)) and the 2026-09-20 wiring draft; only GPIO4 is new. Checked against the APAC firmware on 2026-09-21: it reads the centre TF-Luna on mux channel 3 (channel 1 at Nationals).
+From the Nationals firmware ([`round2_ino.ino`](../src/Round%202/round2_ino/round2_ino.ino)) and the 2026-09-20 wiring draft; only GPIO4 is new. Checked against the APAC firmware ([`src/apac-2026/`](../src/apac-2026/)) on 2026-09-21: it reads the centre TF-Luna on mux channel 3 (channel 1 at Nationals).
 
 | Signal | GPIO |
 |---|---|
@@ -145,6 +147,6 @@ From the Nationals firmware ([`round2_ino.ino`](../src/Round%202/round2_ino/roun
 
 - Race-ready six-view photos (front, back, left, right, top, bottom). The shots in [`v-photos/apac-2026-09-20/`](../v-photos/apac-2026-09-20/) are working photos with cables attached.
 - Open Challenge and Obstacle Challenge videos of this vehicle.
-- The APAC firmware and Raspberry Pi code themselves; §3 and §8 already quote them.
+- The Open Challenge code for this vehicle; [`src/apac-2026/`](../src/apac-2026/) holds the Obstacle Challenge stack.
 - Measurements: turning circle at walking pace and race speed, the blind-zone tape check, motor temperature after a full run, `vcgencmd get_throttled` after a full run.
 - A before/after test for each change in §7.
