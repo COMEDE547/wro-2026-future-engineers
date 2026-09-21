@@ -78,6 +78,15 @@ h = lens height, α = pitch below horizontal, VFOV = vertical field of view, D =
 
 Planned checks: a tape on the floor slid until it just enters the bottom of the image (measures the blind zone directly); a start-position reference frame compared before each round (the hinge is glued, but this catches knocks).
 
+### Colour calibration
+
+The colour thresholds are set on the competition mat during one practice round at each venue, under that venue's lighting (team). Two tools in [`src/apac-2026/tools/`](../src/apac-2026/tools/) apply the same image processing as `main.py`: a contrast and brightness scale, a gamma curve, then contrast-limited histogram equalisation (CLAHE, clip limit 2.0, 8 × 8 tiles) on the lightness channel.
+
+1. **Image.** `camera-settings.py` shows the live camera image with brightness, contrast and gamma sliders. The values chosen go into `BRIGHTNESS`, `CONTRAST` and `GAMMA` in `main.py` (committed: 0, 3.0 and 0.7).
+2. **Colours.** `lab-calibration.py` converts the processed image to Lab and shows a mask while the lower and upper L, a and b sliders move. For each colour the sliders are set until only that colour shows in the mask, and the six values go into `COLOR_RANGES` in `main.py`.
+
+Lab keeps lightness (L) apart from the two colour axes, so red (high a) and green (low a) can be separated with L left fully open, and a brighter or dimmer hall mostly changes L. The committed ranges do this: red is a ≥ 184 and b ≥ 108, green is a ≤ 101, both with L from 0 to 255. The blue and orange tape lines are found with fixed HSV ranges (`COURSE_LINE_HSV_RANGES` in `main.py`), not with these tools.
+
 ## 5. Lighting and power additions
 
 - **LEDs:** 6 × WS2812 on the front frame; data from ESP32 GPIO4; power from the 5 V Buck-2 rail (team). The firmware lights them white at `setBrightness(50)`, about 20 %: roughly 12 mA per LED and 0.07 A for all six by the 60 mA-per-LED full-white rule of thumb in the [Adafruit NeoPixel Überguide](https://learn.adafruit.com/adafruit-neopixel-uberguide) (derived). Full white would be 0.36 A.
