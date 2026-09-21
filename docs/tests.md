@@ -5,6 +5,8 @@ What is tested, by what command, and what result blocks a release.
 Anything below marked **not yet run** is named as such. No result is quoted for a
 test that has not been executed.
 
+> **Scope:** sections 2–8 record the Nationals (August 2026) stack. The APAC 2026 power and drive bench is §10.
+
 ---
 
 ## 1. Test levels
@@ -168,3 +170,20 @@ Tables and plots in `docs/` are currently transcribed from test output by hand,
 which is exactly how documentation drifts away from data. The mitigation — a
 generator under `docs/figures/` that re-derives every table from the raw results
 — is specified but **not yet written**. Risk R9 stays open until it is.
+
+---
+
+## 10. APAC 2026 — power and drive bench (2026-09-21)
+
+The predictions were written down before the bench session and compared afterwards. Pack at 12.3 V; ammeter in series on the named lead; `SPEED = 210`.
+
+| Reading | Predicted before | Measured | Result |
+|---|---|---|---|
+| Buck-2 input, idle, LEDs on | 0.10–0.17 A | 0.12 A | inside |
+| Buck-2 input, servo sweeping | 0.15–0.30 A | 0.21–0.29 A | inside |
+| Motor wire, rear wheels lifted | 0.25–0.45 A | 0.33 A | inside |
+| Rear wheel speed, lifted | 370–490 rpm | 422 rpm | inside |
+
+Check after the fact: the motor model fitted to these readings and the stall current ([APAC vehicle §3](apac_2026_vehicle.md)) gives 3.37 s for a 3 m standing start; the measured time is 3.36 s. The model was fitted after that run, so this is a consistency check, not a prediction.
+
+**Not yet run:** the fast-charge module and Buck-2 rating labels, the turning circle, the motor temperature after a full run, `vcgencmd get_throttled` after a full run.

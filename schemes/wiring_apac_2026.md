@@ -15,7 +15,7 @@ flowchart LR
     BUCK -->|"5 V"| SRV["MG90 servo"]
     BUCK -->|"5 V"| LED["6x WS2812 LEDs"]
     ESP -->|"3.3 V, GPIO21 SDA, GPIO22 SCL"| MUX["PCA9548A 0x70"]
-    MUX -->|"ch0 left, ch1 centre, ch2 right"| TFL
+    MUX -->|"ch0 left, ch3 centre, ch2 right"| TFL
     MUX -->|"ch4"| IMU["BNO055 0x28"]
     ESP -->|"3.3 V"| IMU
     ESP -->|"GPIO13"| SRV
