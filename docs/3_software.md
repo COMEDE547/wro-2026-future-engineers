@@ -1,6 +1,6 @@
 # 3 — Software Architecture & Obstacle Strategy
 
-> **Scope:** this document describes the software flashed at Nationals (August 2026). The APAC 2026 code is in [`src/apac-2026/`](../src/apac-2026/); the vehicle changes are in [`apac_2026_vehicle.md`](apac_2026_vehicle.md).
+> **Scope:** this document describes the software flashed at Nationals (August 2026). The APAC 2026 code is in [`src/apac-2026/`](../src/apac-2026/) and its state machine in [`apac_2026_software.md`](apac_2026_software.md); the vehicle changes are in [`apac_2026_vehicle.md`](apac_2026_vehicle.md).
 
 > **Status (2026-08-24).** The Round 2 configuration flashed at Nationals is
 > [`src/Round 2/competition/`](../src/Round%202/competition/) — PID heading hold with a

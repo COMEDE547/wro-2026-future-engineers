@@ -40,6 +40,7 @@ Organised against the five criteria WRO uses to score engineering documentation.
 | 4 | Systems Thinking & Engineering Decisions | [`docs/4_systems_and_decisions.md`](docs/4_systems_and_decisions.md) | Decision log, rejected alternatives, risk register |
 | 5 | Reproducibility & Repository Quality | [`docs/5_reproducibility.md`](docs/5_reproducibility.md) | Reproduction steps, licensing, versioning policy |
 | — | **APAC 2026 vehicle (September rebuild)** | [`docs/apac_2026_vehicle.md`](docs/apac_2026_vehicle.md) | Changes since Nationals, bench measurements (2026-09-21) and the code in [`src/apac-2026/`](src/apac-2026/); photos and videos still being added |
+| — | **APAC 2026 software (Obstacle Challenge)** | [`docs/apac_2026_software.md`](docs/apac_2026_software.md) | State diagrams of `main.py`, the thresholds on each transition, why the states are split this way, edge cases and known limits |
 | — | **Engineering Journal (final, rev 3)** | [`docs/engineering_journal_final.pdf`](docs/engineering_journal_final.pdf) | 26 pp; describes the Nationals (August 2026) competition configuration; matches the repository at `b715a4b` |
 | — | Testing workflow | [`docs/tests.md`](docs/tests.md) | T1-T4 running; T5-T7 blocked on hardware |
 | — | Detector reference | [`src/Round 2/detector/README.md`](src/Round%202/detector/README.md) | Results, operating point, reproduction |

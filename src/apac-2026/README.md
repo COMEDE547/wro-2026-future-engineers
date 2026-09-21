@@ -1,6 +1,6 @@
 # APAC 2026 competition code
 
-The Obstacle Challenge code the vehicle runs at WRO Future Engineers APAC 2026. The vehicle is described in [`docs/apac_2026_vehicle.md`](../../docs/apac_2026_vehicle.md).
+The Obstacle Challenge code the vehicle runs at WRO Future Engineers APAC 2026. The vehicle is described in [`docs/apac_2026_vehicle.md`](../../docs/apac_2026_vehicle.md), and how `main.py` drives the run, with its state diagrams, in [`docs/apac_2026_software.md`](../../docs/apac_2026_software.md).
 
 | File | Runs on | What it does |
 |---|---|---|
