@@ -22,10 +22,11 @@ The Obstacle Challenge code the vehicle runs at WRO Future Engineers APAC 2026. 
 
 | Setting | Value | File |
 |---|---|---|
-| Drive speed | `SPEED = 210` (82 % duty) | `main.py` |
+| Drive speed | `SPEED = 215` (84 % duty; 210 in v0.4.0) | `main.py` |
 | Turning, parking, collision escape | `100`, `70`, `80` | `main.py` |
 | Leave the parking area at the start | `ENABLE_PARKING_EXIT = True` | `main.py` |
-| Park at the end | `ENABLE_PARKING_IN = False` in `main.py`. At APAC the car parks with `parallel_parking.py` (team decision 2026-09-23, [software §8](../../docs/apac_2026_software.md#8-parking-modules)); the `main.py` that starts it is not yet in this folder | `main.py` |
+| Park at the end | `ENABLE_PARKING_IN = True`: `main.py` parks with its own routine ([software §10](../../docs/apac_2026_software.md#10-what-the-2026-09-18-mainpy-changes)). At APAC the team plans to park with `parallel_parking.py` ([software §8](../../docs/apac_2026_software.md#8-parking-modules)); the `main.py` that hands over to it is not yet in this folder | `main.py` |
+| Run log | `ENABLE_RUN_CSV_LOGGING = True`: every run writes `run_logs/round2_run_<date_time>.csv` beside `main.py`, one row per telemetry sample and one per event | `main.py` |
 | Parking modules | run on their own, e.g. `python parallel_parking.py --direction clockwise --last-pillar auto` | `parallel_parking.py`, `partial_parking.py` |
 | Parking run log (CSV and video per run) | `ENABLE_RUN_LOGGING = False` | `parallel_parking.py` |
 | Servo centre | `SERVO_CENTER = 85` | firmware |
@@ -42,11 +43,15 @@ Copied on 2026-09-21 from the team coach's working repository (private; commit `
 
 | File | MD5 |
 |---|---|
-| `main.py` | `238dd1af810112d09598e433b483d5f8` |
+| `main.py` | `9b7eb750d26e9df2448196452a0b5cbe` |
 | `obstacle-challenge-final-code.ino` | `28a6cdfba6ad9164471c5e9b56110a0c` |
 | `lab-calibration.py` | `ad3b6f191bb384d708ae5894bbf4d70d` |
 | `camera-settings.py` | `f02e7f9eaae329e8867e965ac4f98511` |
 | `parallel_parking.py` | `6e8112e6c355421a43c53fd91433d434` |
 | `partial_parking.py` | `7e4ef1645d1579f5c2f99f6063576c67` |
 
+`main.py` was replaced on 2026-09-23 by the version dated 2026-09-18, from a second Google Drive download (`drive-download-20260922T190246Z-1-001.zip`) whose `cmd.txt` shows the coach starting `final-code/obstacle-challenge-final-code/main.py`. The version it replaces (MD5 `238dd1af810112d09598e433b483d5f8`), which [software §1-§6](../../docs/apac_2026_software.md) describes, stays in the history ([the file before the change](https://github.com/teddriveomo/wro-2026-future-engineers/blob/a0b36254bd93709a8d6fc53e1eead0ca39324006/src/apac-2026/obstacle-challenge/main.py)). The ESP32 firmware in the September downloads is byte-identical to the committed file (MD5 `28a6cdfb`). Every `main.py` name the parking modules use also exists in the 2026-09-18 file.
+
 Not included, because none of them runs on this vehicle: the build without LEDs, an older firmware for a smaller robot, backup copies (`.bak`), component tests and the rest of the coaching repository. The Open Challenge code is not in this folder.
+
+Also left out from the September downloads: earlier and experimental versions of `main.py` (`main_16_Sep.py`, `mainversion2.py`, `corner_slot_filler.py`) and standalone tests (`parking_entry_only.py`, `cornering_sequence.py`).
