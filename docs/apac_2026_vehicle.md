@@ -126,20 +126,20 @@ With the Pi's peak treated as its average, a 2200 mAh pack used to 80 % gives ab
 
 ## 7. Why each change was made
 
-Reasons as the team gives them, with the numbers available so far. The before/after test behind each one is still to be added.
+Each change as a decision: what it replaced, the reason the team gives, the evidence in this repository, and what it costs. The largest test-driven change in this vehicle's line is in the Nationals record: the wheel-shed failure of 2026-08-06 led to the space-frame redesign that every later frame descends from ([1 - Mobility §3](1_mobility.md), [D8](4_systems_and_decisions.md)).
 
-| Change | Stated reason | Numbers so far |
-|---|---|---|
-| Horizontal side rollers — fitted, then removed | fitted to keep the car moving if it touched a wall; removed once the rewritten wall-avoidance code held up in the team's test runs, and because the rollers blocked access to the Raspberry Pi (reported 2026-09-22) | the team reports no wall contact in those runs; the number of runs, the code version and the date are not yet recorded |
-| Non-Ackermann steering column | a smaller turning circle | turning circle still to be measured |
-| Rear tyres | more grip | — |
-| Camera raised | a better view of the track | range signal about 2.2 times stronger; look-ahead ~1.2 m (§4) |
-| New frame | a sturdier structure | — |
-| Front LEDs | fewer colour mistakes | — |
-| Front stop removed from the firmware (2026-09-10) | stopping the drive motor ends a competition run, and it ended one | collision handling now on the Pi's distance logic (§6) |
+| Change | Instead of | Reason (team) | Evidence here | Trade-off |
+|---|---|---|---|---|
+| New 84-step frame, 332 g bare | the Nationals 69-step space-frame | a sturdier structure | build file; the car weighs 862 g against 785 g at Nationals (measured, all changes together) | 77 g more to accelerate and stop; stiffness not measured |
+| Steering column turning the whole front axle, 60° each way | single-servo Ackermann | a smaller turning circle | turning circle not measured | the front wheels no longer follow Ackermann geometry, so they scrub in tight turns |
+| Wheels: front 45 mm, rear 55 mm tyres | front 41 mm, rear 55.6 mm | rear tyres for grip | not measured | none recorded |
+| Camera on a 24.8 cm tower, 12° down | a front arm at about 10 cm | a better view of the track | measured mount, derived geometry: pillar bases at 0.5 m and 1.0 m are 12.5° apart against 5.6° before, a 2.2 × stronger range signal (§4) | a 19 cm blind zone ahead of the wheels and a view over the walls (§4); a taller top, its centre-of-gravity height not measured |
+| Six WS2812 LEDs on the front frame | ambient light | fewer colour mistakes | 0.07 A at the set brightness by the rule of thumb; Buck-2 idle 0.13 A measured with them (§5); misread counts not measured | data at 3.3 V may flicker (§6) |
+| Side rollers fitted, then removed | none | fitted to keep the car moving on wall contact; removed once the rewritten wall-avoidance code made them unnecessary, and because they blocked the Raspberry Pi's ports (reported 2026-09-22) | the team ran the car in both configurations without trouble (team; the number of runs is not recorded) | without rollers a wall contact stops the car; only the Pi's collision escape (§6) remains |
+| Firmware front stop removed (2026-09-10) | a stop under 18 cm on the front TF-Luna | stopping the drive motor ended a competition run | one run ended (team) | collisions are handled by the Pi's distance logic alone (§6) |
+| Parallel parking at the end (`parallel_parking.py`) | direct entry (`partial_parking.py`) | 15 points for a full parallel park against 7 (2026 rules, scoring element 1.8.2) | rules; no parking attempt logged yet ([software §8](apac_2026_software.md)) | a longer manoeuvre beside the limitations; touching one ends the round (rule 9.24.7) |
 
 **The 2026-09-10 front-stop decision.** The firmware used to stop the drive motor when the front TF-Luna read under 18 cm (released at 24 cm) or when its reading went stale, and that stop ended a run. On 2026-09-10 `forwardHardStopIsActive()` was changed to return `false`, with the comment "Disabled: stopping the drive motor here ends a competition run". Collisions are now handled on the Pi: back away at speed 80 for 0.30 s, require at least 3 cm of progress, at most 2 attempts, release at 30 cm. The team kept the earlier versions as backups, which are not committed: `obstacle-challenge-final-code_withLED.ino.before-remove-front-brake-20260910.bak` (MD5 `a0f20dd94d2dce1a27c2fc72e3700922`) and `obstacle-challenge-final-code_withLED.ino.before-parking-override-20260910.bak` (MD5 `c93dd67690d2153980442369aa3df41d`). The same day added a `PARKING_OVERRIDE_ON` serial command to the firmware; `main.py` never sends it, so it has no effect in a run.
-
 ## 8. ESP32 pin map
 
 From the Nationals firmware ([`round2_ino.ino`](../src/Round%202/round2_ino/round2_ino.ino)) and the 2026-09-20 wiring draft; only GPIO4 is new. Checked against the APAC firmware ([`src/apac-2026/`](../src/apac-2026/)) on 2026-09-21: it reads the centre TF-Luna on mux channel 3 (channel 1 at Nationals).
@@ -158,4 +158,4 @@ From the Nationals firmware ([`round2_ino.ino`](../src/Round%202/round2_ino/roun
 - Open Challenge and Obstacle Challenge videos of this vehicle.
 - The Open Challenge code for this vehicle; [`src/apac-2026/`](../src/apac-2026/) holds the Obstacle Challenge stack.
 - Measurements: turning circle at walking pace and race speed, the blind-zone tape check, motor temperature after a full run, `vcgencmd get_throttled` after a full run.
-- A before/after test for each change in §7.
+- LED misread counts on the same pillars with the LEDs off and on (§7).

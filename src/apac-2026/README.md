@@ -25,7 +25,7 @@ The Obstacle Challenge code the vehicle runs at WRO Future Engineers APAC 2026. 
 | Drive speed | `SPEED = 210` (82 % duty) | `main.py` |
 | Turning, parking, collision escape | `100`, `70`, `80` | `main.py` |
 | Leave the parking area at the start | `ENABLE_PARKING_EXIT = True` | `main.py` |
-| Park at the end | `ENABLE_PARKING_IN = False` | `main.py` |
+| Park at the end | `ENABLE_PARKING_IN = False` in `main.py`. At APAC the car parks with `parallel_parking.py` (team decision 2026-09-23, [software §8](../../docs/apac_2026_software.md#8-parking-modules)); the `main.py` that starts it is not yet in this folder | `main.py` |
 | Parking modules | run on their own, e.g. `python parallel_parking.py --direction clockwise --last-pillar auto` | `parallel_parking.py`, `partial_parking.py` |
 | Parking run log (CSV and video per run) | `ENABLE_RUN_LOGGING = False` | `parallel_parking.py` |
 | Servo centre | `SERVO_CENTER = 85` | firmware |
