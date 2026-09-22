@@ -7,13 +7,13 @@
 | | Nationals (Aug 2026) | APAC 2026 (Sep 2026) | Basis |
 |---|---|---|---|
 | Length × width × height | length 23.0 cm | 19.1 × 14.3 × 27.2 cm (±0.5 cm) | measured |
-| Mass | 785 g | 862 g race-ready, Raspberry Pi 5 included (2026-09-16) | measured |
+| Mass | 785 g | 862 g race-ready, Raspberry Pi 5 included (2026-09-16); not re-weighed after the side rollers were removed (§7) | measured |
 | Axle loads | — | front 201 g, rear 661 g (23 % / 77 %) — see §2 | measured |
 | Chassis | LEGO Technic space-frame, 69-step build | LEGO Technic frame, 84-step build ([instructions](../models/chassis/chassis_build_instructions_apac_2026-09.pdf)); 332 g bare | build file; measured |
 | Printed parts | TF-Luna holders, servo horn beam, motor clamp ([`models/`](../models/)) | the same STL files | team |
 | Steering | single-servo Ackermann (MG90S) | non-Ackermann: an MG90 servo drives a vertical steering column that turns the front axle, 60° each side | team |
 | Wheelbase | — | 13 cm | team |
-| Wheels | front 41 mm, rear 55.6 mm | front 45 mm, rear 55 mm (rear tyres chosen for grip); two 30 mm horizontal side rollers (build steps 71–76) | team |
+| Wheels | front 41 mm, rear 55.6 mm | front 45 mm, rear 55 mm (rear tyres chosen for grip). Two 30 mm horizontal side rollers were fitted in the rebuild (build steps 71–76) and have since been removed — see §7 | team |
 | Drive motor | N20 gearmotor, 12 V, 600 rpm, via TB6612FNG | MEX motor (Avishkaar), rated 6 V, 400 rpm, via TB6612FNG — see §3 | team |
 | Gearing | 20T pinion → 28T crown on a LEGO differential (5:7) | unchanged | team |
 | Battery | 3S LiPo, 11.1 V, 2200 mAh | unchanged | team |
@@ -21,7 +21,7 @@
 | Sensors | 3 × TF-Luna on a PCA9548A, BNO055, USB camera on a front arm at ~10 cm | same sensors; the camera (Lenovo 300 FHD) now sits on top of a rear tower — see §4 | photos; measured |
 | Lighting | none | 6 × WS2812 LEDs (three 2-LED strips) on the front frame — see §5 | team |
 
-Wiring: [`schemes/wiring_apac_2026.md`](../schemes/wiring_apac_2026.md).
+Wiring: [`schemes/wiring_apac_2026.md`](../schemes/wiring_apac_2026.md). Photos: [`v-photos/apac-2026-09-22/`](../v-photos/apac-2026-09-22/) — six views, 2026-09-22.
 
 ## 2. Weight and balance
 
@@ -130,7 +130,7 @@ Reasons as the team gives them, with the numbers available so far. The before/af
 
 | Change | Stated reason | Numbers so far |
 |---|---|---|
-| Horizontal side rollers | keep the car moving if it touches a wall | — |
+| Horizontal side rollers — fitted, then removed | fitted to keep the car moving if it touched a wall; removed once the rewritten wall-avoidance code held up in the team's test runs, and because the rollers blocked access to the Raspberry Pi (reported 2026-09-22) | the team reports no wall contact in those runs; the number of runs, the code version and the date are not yet recorded |
 | Non-Ackermann steering column | a smaller turning circle | turning circle still to be measured |
 | Rear tyres | more grip | — |
 | Camera raised | a better view of the track | range signal about 2.2 times stronger; look-ahead ~1.2 m (§4) |
@@ -154,7 +154,7 @@ From the Nationals firmware ([`round2_ino.ino`](../src/Round%202/round2_ino/roun
 
 ## 9. Still to add
 
-- Race-ready six-view photos (front, back, left, right, top, bottom). The shots in [`v-photos/apac-2026-09-20/`](../v-photos/apac-2026-09-20/) are working photos with cables attached.
+- The wall-avoidance runs behind the side-roller removal (§7): how many, on which code version, with what result.
 - Open Challenge and Obstacle Challenge videos of this vehicle.
 - The Open Challenge code for this vehicle; [`src/apac-2026/`](../src/apac-2026/) holds the Obstacle Challenge stack.
 - Measurements: turning circle at walking pace and race speed, the blind-zone tape check, motor temperature after a full run, `vcgencmd get_throttled` after a full run.

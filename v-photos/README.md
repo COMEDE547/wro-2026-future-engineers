@@ -2,8 +2,9 @@
 
 Six views as required by chapter 7 — every side, plus top and bottom — of the
 vehicle **as it ran at Nationals**, photographed 2026-08-11. Working photos of the
-September rebuild for APAC 2026 are in [`apac-2026-09-20/`](apac-2026-09-20/); its
-race-ready six-view set will follow.
+September rebuild for APAC 2026 are in [`apac-2026-09-20/`](apac-2026-09-20/); the
+six-view set of the APAC vehicle (received 2026-09-22) is in
+[`apac-2026-09-22/`](apac-2026-09-22/) (table below).
 
 | File | View | What it shows |
 |---|---|---|
@@ -33,3 +34,18 @@ rather than kept.
 
 The 2026-08-05 set also predated the Pi 5 and camera being mounted; both are
 fitted and visible here.
+
+## APAC 2026 six-view set (2026-09-22)
+
+The rebuilt vehicle ([APAC 2026 vehicle](../docs/apac_2026_vehicle.md)), photographed on
+the team's practice mat after the horizontal side rollers were removed (photos
+received 2026-09-22; §7 there). Usual convention: `apac-left.jpg` is the car's left side, nose to frame-left.
+
+| File | View | What it shows |
+|---|---|---|
+| `apac-2026-09-22/apac-front.jpg` | Front | Camera on the rear tower, the WS2812 strips on the front frame, the centre TF-Luna in its orange bracket, front wheels |
+| `apac-2026-09-22/apac-rear.jpg` | Rear | The tower from behind, the power switch, rear wheels |
+| `apac-2026-09-22/apac-left.jpg` | Left | Full profile, nose to frame-left |
+| `apac-2026-09-22/apac-right.jpg` | Right | Full profile, nose to frame-right |
+| `apac-2026-09-22/apac-top.jpg` | Top | Camera housing over the deck, ESP32 board and breakouts, rear wheels |
+| `apac-2026-09-22/apac-bottom.jpg` | Bottom | Underside with the car laid on its side: both axles and the drive motor |
