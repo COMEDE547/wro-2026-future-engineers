@@ -832,7 +832,7 @@ void receiveCommands()
 void setup()
 {
   strip.begin();
-  strip.setBrightness(50);
+  strip.setBrightness(80);
 
   // Turn ON all 6 LEDs - White
   for (int i = 0; i < LED_COUNT; i++)

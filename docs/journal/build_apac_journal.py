@@ -2,7 +2,7 @@
 
 Part I is rendered from docs/apac_2026_vehicle.md, docs/apac_2026_software.md and
 src/apac-2026/README.md (plus a cover and a one-page snapshot), printed to PDF by
-headless Microsoft Edge; Part II is the Nationals journal (rev 3) unchanged.
+headless Microsoft Edge. The Nationals journal (rev 3) stays a separate file.
 Run from anywhere:  python docs/journal/build_apac_journal.py
 Needs: Python 3 with markdown and pymupdf; Microsoft Edge (Windows) or set EDGE; the state diagrams are drawn by mermaid.ink.
 """
@@ -120,7 +120,7 @@ cover = """
 <div class="cover">%s
 <div style="font-size:9pt;color:#c0392b;letter-spacing:.12em;margin-top:16px">WRO FUTURE ENGINEERS 2026 &middot; APAC</div>
 <h1>Engineering Journal</h1>
-<div style="font-size:13pt;color:#444">APAC 2026 edition (rev 4) &middot; Team TED Drive</div>
+<div style="font-size:13pt;color:#444">APAC 2026 edition (rev 5) &middot; Team TED Drive</div>
 <img class="photo" src="%s">
 <table class="meta">
 <tr><td>Team</td><td>Ethan Fernandes (software) &middot; Tejas Sirikonda (mechanical) &middot; Diaan (electronics)</td></tr>
@@ -129,28 +129,27 @@ cover = """
 <tr><td>Repository</td><td><a href="https://github.com/teddriveomo/wro-2026-future-engineers">github.com/teddriveomo/wro-2026-future-engineers</a> (release 0.5.0 and later)</td></tr>
 <tr><td>Prepared</td><td>23 September 2026, against WRO 2026 General Rules, Appendix C</td></tr>
 </table>
-<p class="note">Part I describes the vehicle rebuilt for APAC and is generated from the repository's own documents, so the journal and the repository say the same thing. Part II is the India Nationals journal (rev 3, 24 August 2026), kept unchanged as the record of the first vehicle.</p>
-</div>""" % (BAND, (ROOT / 't-photos/team_photo_official.jpg').as_uri())
+<p class="note">This journal describes the vehicle rebuilt for APAC, shown above, and is generated from the repository's own documents, so the journal and the repository say the same thing. The India Nationals journal (rev 3, 24 August 2026), which describes the first vehicle, is a separate file in the repository: <code>docs/engineering_journal_final.pdf</code>.</p>
+</div>""" % (BAND, (ROOT / 'v-photos/apac-2026-09-22/apac-left.jpg').as_uri())
 
-snapshot = """<section>%s<h2><span class="n">01</span>Snapshot</h2><p class="lede">The APAC vehicle in one page; every figure is from Part I and the repository.</p>
+snapshot = """<section>%s<h2><span class="n">01</span>Snapshot</h2><p class="lede">The APAC vehicle in one page; every figure is from this journal and the repository.</p>
 <table class="kv">
 <tr><td>Vehicle</td><td>Rebuilt in September 2026: a new 84-step LEGO Technic frame (332 g bare), a steering column that turns the whole front axle 60&deg; each way, the camera on a 24.8 cm tower pointing 12&deg; down, six WS2812 LEDs on the front frame. The horizontal side rollers of the rebuild were removed on 22 September.</td></tr>
 <tr><td>Mass</td><td>862 g race-ready with the Raspberry Pi 5 (measured 16 September, before the rollers came off).</td></tr>
 <tr><td>Drive</td><td>MEX 6 V motor through a TB6612FNG driver to the rear wheels: 422 rpm free-running at the wheel and 0.89 m/s average over 3 m from a standing start (measured 21 September).</td></tr>
 <tr><td>Power</td><td>3S 2200 mAh pack: 1.34 A idle, 1.93-2.02 A driving, 2.77 A worst case (each branch measured, 21 September).</td></tr>
 <tr><td>Compute</td><td>Raspberry Pi 5 (camera, detection, decisions) and ESP32 (drive motor, servo, three TF-Luna, LEDs), linked by USB serial.</td></tr>
-<tr><td>Software</td><td><code>main.py</code> dated 18 September: Lab-colour pillar detection with tape-line corner context, a state machine that recentres between the walls after every pillar and corner, two pillars per straight, and a CSV log of every run. Parking at the end: <code>parallel_parking.py</code>, the team's choice for APAC.</td></tr>
+<tr><td>Software</td><td><code>main.py</code> (the coach's working copy, 23 September): Lab-colour pillar detection with tape-line and black-wall corner cues, a state machine that recentres between the walls after every pillar and corner and steers off a side wall during pillar passes, two pillars per straight, and a hand-over to a parking module after the twelfth corner (<code>partial_parking.py</code> as committed; <code>parallel_parking.py</code> is one switch away).</td></tr>
 <tr><td>Evidence</td><td>Bench measurements of drive, power and camera geometry (&sect;02, &sect;03); detection shown on the mat (&sect;04); code stored byte-for-byte with MD5 checksums (&sect;06).</td></tr>
 </table>
 <h3>Contents</h3>
-<table><tr><th>&sect;</th><th>Part I: APAC 2026 vehicle</th><th>Appendix C</th></tr>
+<table><tr><th>&sect;</th><th>Section</th><th>Appendix C</th></tr>
 <tr><td>01</td><td>Snapshot</td><td></td></tr>
 <tr><td>02</td><td>Mobility: frame, drive, steering, camera placement, six views</td><td>C1</td></tr>
 <tr><td>03</td><td>Power and sensing: LEDs, measured power budget, failure points, ESP32 pins</td><td>C2</td></tr>
 <tr><td>04</td><td>Software and obstacle strategy: control loop, states, recovery, detection, parking, validation</td><td>C3</td></tr>
 <tr><td>05</td><td>Engineering decisions: every change with its reason, evidence and cost</td><td>C4</td></tr>
-<tr><td>06</td><td>Reproducibility: files, serial link, settings, provenance and checksums</td><td>C5</td></tr>
-<tr><td>II</td><td>India Nationals journal, rev 3 (the first vehicle)</td><td>C1-C5</td></tr></table>
+<tr><td>06</td><td>Reproducibility: files, serial link, settings, provenance and checksums</td><td>C5</td></tr></table>
 </section>""" % BAND
 
 def chapter(n, title, lede, body):
@@ -180,29 +179,22 @@ print('part I pages', n1, '| near-empty pages without images:', leftover or 'non
 for i, pg in enumerate(p1):
     if i == 0: continue
     r = pg.rect
-    pg.insert_text((r.width / 2 - 150, r.height - 22), 'TED Drive \u00b7 WRO FE 2026 Engineering Journal, APAC edition \u00b7 Part I \u00b7 %d / %d' % (i + 1, n1), fontsize=7, color=(0.45, 0.45, 0.45))
-nat = fitz.open(str(NATIONALS))
-div = fitz.open(); w, h = p1[0].rect.width, p1[0].rect.height; d = div.new_page(width=w, height=h)
-d.insert_text((56, 300), 'Part II', fontsize=30, color=(0.75, 0.22, 0.17))
-d.insert_text((56, 336), 'India Nationals journal, rev 3 (24 August 2026)', fontsize=14)
-d.insert_text((56, 360), 'The first vehicle, kept unchanged. Part I describes the car that replaced it.', fontsize=10, color=(0.3, 0.3, 0.3))
-out = fitz.open(); out.insert_pdf(p1); out.insert_pdf(div); out.insert_pdf(nat)
+    pg.insert_text((r.width / 2 - 150, r.height - 22), 'TED Drive \u00b7 WRO FE 2026 Engineering Journal, APAC edition \u00b7 %d / %d' % (i + 1, n1), fontsize=7, color=(0.45, 0.45, 0.45))
+out = fitz.open(); out.insert_pdf(p1)
 def first(pat):
     pat = r'\s+'.join(pat.split(' '))
     for i, t in enumerate(text):
         if re.search(pat, t): return i + 1
     raise SystemExit('bookmark target not found: ' + pat)
-toc = [[1, 'Cover', 1], [1, 'Part I - APAC 2026 vehicle', 2],
-       [2, '01 Snapshot', first('The APAC vehicle in one page')], [2, '02 Mobility', first('How the car is built and moves')],
+toc = [[1, 'Cover', 1], [2, '01 Snapshot', first('The APAC vehicle in one page')], [2, '02 Mobility', first('How the car is built and moves')],
        [2, '03 Power and sensing', first('What powers the car')], [2, '04 Software and obstacle strategy', first('How main.py drives the Obstacle')],
-       [2, '05 Engineering decisions', first('Each change as a decision')], [2, '06 Reproducibility', first('How to rebuild and run')],
-       [1, 'Part II - India Nationals journal (rev 3)', n1 + 1]]
+       [2, '05 Engineering decisions', first('Each change as a decision')], [2, '06 Reproducibility', first('How to rebuild and run')]]
 out.set_toc(toc)
-out.set_metadata({'title': 'TED Drive - WRO FE 2026 Engineering Journal (APAC 2026 edition, rev 4)', 'author': 'Team TED Drive',
+out.set_metadata({'title': 'TED Drive - WRO FE 2026 Engineering Journal (APAC 2026 edition, rev 5)', 'author': 'Team TED Drive',
                   'subject': 'WRO Future Engineers 2026, APAC', 'creator': 'docs/journal/build_apac_journal.py'})
 out.save(str(OUT), garbage=3, deflate=True)
 print('wrote', OUT, 'pages', out.page_count, 'bytes', OUT.stat().st_size, '| toc', [(t[1], t[2]) for t in toc])
-qa = sorted(set([first('The six views'), first('2. The run') + 1]))
+qa = [1, 2]
 for pno in qa:
     pix = out[pno - 1].get_pixmap(matrix=fitz.Matrix(0.9, 0.9)); pix.save(str(WORK / ('qa_p%02d.png' % pno)))
 print('qa pages', qa, 'in', WORK)

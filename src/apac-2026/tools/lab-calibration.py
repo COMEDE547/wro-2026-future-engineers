@@ -39,7 +39,7 @@ cap = cv2.VideoCapture(1)
 
 while True:
     ret, frame = cap.read()
-    if not ret:
+    if not ret: 
         break
 
     if ADJUST:

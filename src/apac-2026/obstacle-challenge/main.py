@@ -1,8 +1,7 @@
 """Future Engineers Round 2 controller.
 
-Active path: one unified pillar detector plus a non-blocking navigation state
-machine. The older detector and lookup-table functions remain below only as
-inactive reference code; the main entry point never calls them.
+Active path: one unified pillar detector and navigation state machine. After
+corner 12, control passes to parallel_parking.py for the parking manoeuvre.
 """
 
 # Importing Modules
@@ -43,7 +42,7 @@ TURNING_SPEED = 110
 SPEED = 215
 FOLLOW_STRAIGHT_SPEED = 125
 POST_CORNER_FOLLOW_SPEED = 120  
-POST_CORNER_FOLLOW_SECONDS = 2.5
+POST_CORNER_FOLLOW_SECONDS = 2
 PARKING_SPEED = int(PARKING_SPEED*SPEED_K_PARKING)
 TURNING_SPEED = int(TURNING_SPEED*SPEED_K)
 SPEED = int(SPEED*SPEED_K)
@@ -53,7 +52,7 @@ PARKING_EXIT_FINAL_LAUNCH_SPEED = 70
 PARKING_EXIT_FINAL_LAUNCH_SECONDS = 0.35
 
 # Debugging
-DEBUG = False
+DEBUG = True
 SHOW_LIVE_UI = True
 
 # Round 2 feature switches. Parking exit/in run as isolated non-blocking states
@@ -61,7 +60,9 @@ SHOW_LIVE_UI = True
 ENABLE_COLOR_DETECTION = True
 ENABLE_PARKING_EXIT = True
 ENABLE_PARKING_IN = True
-ENABLE_RUN_CSV_LOGGING = True
+PARTIAL_PARKING = True
+PARALLEL_PARKING = False
+ENABLE_RUN_CSV_LOGGING = False
 RUN_CSV_FLUSH_SECONDS = 1.0
 
 # Serial Values
@@ -126,7 +127,7 @@ CORNER_PILLAR_MIN_AREA_RATIO = 0.006
 CORNER_PENDING_SPEED = 120
 CORNER_FINAL_APPROACH_CM = 55
 CORNER_FINAL_APPROACH_SPEED = 120
-CORNER_TWO_STEP_SPLIT_DEGREES = 25
+CORNER_TWO_STEP_SPLIT_DEGREES = 65
 TURN_DIRECT_REVERSE_FRONT_CM = 30
 TURN_FORWARD_FALLBACK_MIN_FRONT_CM = 45
 TURN_FORWARD_FALLBACK_SPEED = 75
@@ -148,26 +149,21 @@ DEEP_RECOVERY_CONFIRMATION_SAMPLES = 3
 PARKING_HEADING_TOLERANCE = 4
 PARKING_PHASE_NOTICE_SECONDS = 5.0
 PARKING_EXIT_SCAN_FRAMES = 20
-PARKING_ENTRY_LAUNCH_SECONDS = 1.0
-PARKING_ENTRY_LAUNCH_SPEED = 70
-PARKING_ENTRY_HEADING_TOLERANCE = 8
-PARKING_ENTRY_FRONT_TRIGGER_CM = 150
-PARKING_ENTRY_FRONT_SAMPLES = 3
-PARKING_BLOCK_SEARCH_STEER = 30
-PARKING_BLOCK_SEARCH_TURN_SPEED = 55
-PARKING_BLOCK_SEARCH_HEADING_OFFSET = 35
-PARKING_BLOCK_SEARCH_HEADING_TOLERANCE = 5
-PARKING_IN_STOP_FRONT_CM = 90
-PARKING_IN_OPEN_SIDE_CM = 150
-PARKING_IN_STOP_CONFIRMATION_SAMPLES = 3
-PARKING_IN_STOP_SECONDS = 0.20
-PARKING_IN_REVERSE_LEFT_SECONDS = 3.0
-PARKING_IN_REVERSE_RIGHT_SECONDS = 0.20
-PARKING_IN_FULL_STEER = 60
-# Minimal side-wall safeguard requested for active pillar passing only.
-# It changes steering only; it never stops, reverses, or changes navigation state.
-SIDE_NUDGE_TRIGGER_CM = 3
-SIDE_NUDGE_STEER = 10
+PARKING_EXIT_REVERSE_VIEW_SECONDS = 4.5
+PARKING_EXIT_FORWARD_ALIGN_SECONDS = 0.10
+PARKING_EXIT_FORWARD_ALIGN_TIMEOUT_SECONDS = 4.5
+PARKING_EXIT_FORWARD_ALIGN_TOLERANCE = 8
+PARKING_EXIT_FORWARD_ALIGN_STEER_GAIN = 1.0
+PARKING_EXIT_FORWARD_ALIGN_MAX_STEER = 30
+PARKING_EXIT_FIRST_PILLAR_STEER = 40
+# Graduated side-wall envelope during active pillar acquisition/passing.
+PILLAR_WALL_WARNING_CM = 18
+PILLAR_WALL_CRITICAL_CM = 10
+PILLAR_WALL_EMERGENCY_CM = 6
+PILLAR_WALL_MAX_CORRECTION = 35
+PILLAR_WALL_CRITICAL_STEER = 28
+PILLAR_WALL_EMERGENCY_STEER = 42
+PILLAR_WALL_EMERGENCY_SPEED = 65
 PILLAR_HEADING_SOFT_LIMIT_DEGREES = 25
 PILLAR_HEADING_HARD_LIMIT_DEGREES = 55
 TURN_SIDE_CLEARANCE_CM = 20
@@ -180,17 +176,17 @@ CORNER_REVERSE_MAX_SECONDS = 0.50
 PILLAR_RELEASE_FRONT_CM = 45
 PILLAR_RELEASE_SIDE_CM = 12
 PILLAR_RELEASE_ANGLE = 12
-PILLAR_RELEASE_SPEED = 80
+PILLAR_RELEASE_SPEED = 100 #80
 
 PRE_TURN_BACKUP_SPEED = 88  # 70 * 1.25
 PRE_TURN_BACKUP_SECONDS = 0.28  # 0.35 / 1.25
 POST_TURN_BACKUP_SPEED = 125  # 100 * 1.25
-POST_TURN_BACKUP_SECONDS = 0.64  # 0.80 / 1.25
+POST_TURN_BACKUP_SECONDS = 0.35
 POST_TURN_SCAN_HOLD_SECONDS = 0.20
 RECENTER_SECONDS = 0.25 #0.30
 # After a turn, use both side walls to reduce the steering needed for the
 # next pillar. Ignore a side reading that is still seeing the open corner.
-ROUND2_RECENTER_SPEED = 150
+ROUND2_RECENTER_SPEED = 160
 ROUND2_RECENTER_MIN_SECONDS = 0.55
 ROUND2_RECENTER_MAX_SECONDS = 1.60
 ROUND2_RECENTER_SIDE_MIN_CM = 8
@@ -213,7 +209,7 @@ ROUND2_RECENTER_CONFIRMATION_SAMPLES = 3
 #     not just a heading hold).
 #   phase 2 "settle" -- blend heading-hold with side-wall balance (same
 #     principle as post-corner RECENTER) until centered.
-PILLAR_RECENTER_SPEED = 120
+PILLAR_RECENTER_SPEED = 160 #120
 PILLAR_RECENTER_COUNTER_STEER_DEGREES = 22.0
 PILLAR_RECENTER_COUNTER_MIN_SECONDS = 0.18
 PILLAR_RECENTER_COUNTER_MAX_SECONDS = 0.45
@@ -231,8 +227,8 @@ TURN_TIMEOUT_SECONDS = 5.0
 HARD_STOP_RELEASE_CM = 30
 CORNER_CLEARANCE_SIDE_NEAR_CM = 22
 CORNER_CLEARANCE_REVERSE_STEER = 30
-CORNER_CLEARANCE_REVERSE_SPEED = 75
-CORNER_CLEARANCE_REVERSE_MAX_SECONDS = 0.80
+CORNER_CLEARANCE_REVERSE_SPEED = 150
+CORNER_CLEARANCE_REVERSE_MAX_SECONDS = 0.40
 PYTHON_EMERGENCY_RELEASE_CM = 5
 EMERGENCY_ESCAPE_SPEED = 80
 EMERGENCY_ESCAPE_SECONDS = 0.30
@@ -246,8 +242,8 @@ HARD_STOP_MIN_PROGRESS_CM = 4
 MAX_RECOVERY_ATTEMPTS = 3
 HEADING_MAX_STEER = 30
 TURN_STEER = 48
-TURN_REVERSE_STEER = 55
-TURN_REVERSE_SPEED = 125
+TURN_REVERSE_STEER = 70
+TURN_REVERSE_SPEED = 150
 TURN_HEADING_TOLERANCE = 5
 
 # Logic
@@ -295,7 +291,7 @@ CAMERA_FPS = 30
 CAMERA_STALE_SECONDS = 0.30
 CAMERA_SIDE_MASK_FRACTION = 0.16
 POST_CORNER_NARROW_VIEW_SECONDS = 5.0
-POST_CORNER_VIEW_SIDE_FRACTION = 0.25
+POST_CORNER_VIEW_SIDE_FRACTION = 0.20
 BRIGHTNESS = 0
 CONTRAST = 3.0
 GAMMA = 0.7
@@ -312,7 +308,7 @@ blue_upper  = np.array([255, 177, 92])
 magenta_lower = np.array([0, 160, 0])
 magenta_upper = np.array([255, 255, 130])
 
-led = LED(3)
+led = LED(17)
 led.off()
 
 colors = {
@@ -375,6 +371,18 @@ COURSE_LINE_HSV_RANGES = {
 COURSE_LINE_MIN_AREA_RATIO = 0.00025
 COURSE_LINE_MIN_WIDTH_RATIO = 0.10
 COURSE_LINE_MIN_ELONGATION = 2.0
+BLACK_WALL_HSV_LOWER = (0, 0, 0)
+BLACK_WALL_HSV_UPPER = (179, 255, 70)
+BLACK_CORNER_ROI_TOP_RATIO = 0.18
+BLACK_CORNER_ROI_BOTTOM_RATIO = 0.78
+BLACK_CORNER_MIN_CONTOUR_AREA_RATIO = 0.055
+BLACK_CORNER_MIN_WIDTH_RATIO = 0.35
+BLACK_CORNER_MIN_HEIGHT_RATIO = 0.18
+BLACK_CORNER_MIN_CENTER_COVERAGE = 0.32
+BLACK_CORNER_MAX_OPEN_SIDE_COVERAGE = 0.26
+BLACK_CORNER_OPEN_SIDE_RELATIVE_COVERAGE = 0.65
+BLACK_CORNER_CONFIRMATION_FRAMES = 3
+BLACK_CORNER_HISTORY = 4
 CORNER_REFERENCE_HOLD_SECONDS = 0.35
 CORNER_CONTEXT_CONFIRMATION_FRAMES = 3
 VISION_CORNER_APPROACH_TIMEOUT_SECONDS = 6.0
@@ -401,25 +409,17 @@ PARKING_BLOCK_AVOID_SPEED = 60
 PARKING_BLOCK_AVOID_STEER = 15
 PARKING_BLOCK_PATH_LEFT_RATIO = 0.35
 PARKING_BLOCK_PATH_RIGHT_RATIO = 0.65
-PARKING_BLOCK_SIDE_MIN_CM = 8
-PARKING_BLOCK_CANDIDATE_SPEED = 45
-PARKING_BLOCK_ENTRY_SPEED = 60
-PARKING_BLOCK_ALIGN_STEER = 25
-PARKING_BLOCK_ALIGN_KP = 55
-PARKING_BLOCK_ALIGN_TARGET_X = 0.30
-PARKING_BLOCK_ENTRY_STEER = 25
-PARKING_BLOCK_ENTRY_KP = 150
-PARKING_IN_FINAL_FRONT_CM = 5
 
 # Continuous pillar-control tuning for the installed servo orientation.
 PILLAR_RED_TARGET_X = 0.38
 RED_PRE_PASS_REVERSE_SECONDS = 0.8
-RED_PRE_PASS_REVERSE_SPEED = 80
+RED_PRE_PASS_REVERSE_SPEED = 120 #80
 RED_PRE_PASS_REVERSE_STEER = -60
 PILLAR_RED_STEERING_MULTIPLIER = 1.50
 PILLAR_GREEN_TARGET_X = 0.62
 PILLAR_PROXIMITY_START = 0.38
 PILLAR_PROXIMITY_FULL = 0.90
+PILLAR_GREEN_VISIBLE_HOLD_STEER = 25
 PILLAR_NEAR_BOTTOM = 0.78
 PILLAR_LATERAL_KP = 200.0
 PILLAR_MAX_CORRECTION = 40
@@ -428,18 +428,19 @@ PILLAR_HEADING_WEIGHT = 0.25
 PILLAR_MIN_CONTROL_WEIGHT = 0.55
 PILLAR_GREEN_STEERING_MULTIPLIER = 1.50
 PILLAR_AVOIDANCE_STEER_BOOST_DEGREES = 8.0
-PILLAR_ACQUIRE_TIMEOUT_SECONDS = 0.8
+PILLAR_ACQUIRE_TIMEOUT_SECONDS = 1.2
 PILLAR_PASS_TIMEOUT_SECONDS = 4.0
 PILLAR_CONFIRM_PASSED_SECONDS = 0.35
 PILLAR_REQUIRED_LOST_FRAMES = 3
 MAX_PILLARS_PER_STRAIGHT = 2
-POST_TURN_SECOND_SLOT_GRACE_SECONDS = 3.0
-PILLAR_SECOND_SLOT_SIDE_CM = 90
-PILLAR_APPROACH_SPEED = 105
-PILLAR_PASS_SPEED = 80
+SECOND_PILLAR_SLOT_TIMEOUT_SECONDS = 3.6
+POST_CORNER_DIRECT_SECOND_SLOT_DELAY_SECONDS = 2.5
+PILLAR_APPROACH_SPEED = 120 #105
+PILLAR_PASS_SPEED = 120 #80
 PILLAR_MIN_PASS_SPEED = 80
 PILLAR_MIN_STEERING_HOLD_SECONDS = 0.45
 PILLAR_CLEARANCE_HOLD_SECONDS = 0.25
+PILLAR_RED_CLEARANCE_MAX_STEER = 15
 ALPHA_POSITION_WINDOW_SECONDS = 5.0
 
 # With the camera mounted slightly lower, start avoidance at a smaller visible
@@ -627,31 +628,6 @@ def angle_diff(target, current):
     return diff
 
 # Communication Functions
-def get_front(port=None, baud=115200, timeout=0.1):
-    global DIRECTION
-    if DIRECTION == "anticlocwise":
-        port = "/dev/ttyAMA3"
-    else:
-        port = "/dev/ttyAMA0"
-    if not port:
-        return None
-    try:
-        with serial.Serial(port, baud, timeout=timeout) as ser:
-            # Read 9 bytes (full TF-LUNA frame)
-            frame = ser.read(9)
-            if len(frame) != 9:
-                return None
-
-            # Check header (0x59 0x59)
-            if frame[0] != 0x59 or frame[1] != 0x59:
-                return None
-
-            # Extract distance (low byte + high byte)
-            dist = frame[2] | (frame[3] << 8)
-            return dist if dist >= 0 else None
-    except serial.SerialException as e:
-        print(f"[ERROR] Failed to read from {port}: {e}")
-        return None
 
 def _distance_is_valid(value):
     return value is not None and 0 < value < INVALID_DISTANCE
@@ -783,14 +759,7 @@ def read_data():
         return last_valid_telemetry
     return [None, None, None, None, None]
 
-def wait_until_and_read_data():
-    d = [None, None, None, None, None]
-    while d[2] is None:
-        d = read_data()
-    return d
 
-def read_latest():
-    return read_data()
 
 def send_data(speed, direction, steer):
     speed = max(0, min(255, int(round(speed))))
@@ -812,36 +781,6 @@ def flush_serial():
     return latest
 
 # Movement Functions
-def steer_until_angle(current_angle, new_target, speed, direction, steer):
-    if new_target > current_angle:
-        sign = ">"
-    else:
-        sign = "<"
-
-    data = [None, None, None, None, None]
-    while not data[0]:
-        data = read_data()
-        flush_serial()
-    angle, _, _, _, _ = data
-
-    if sign == "<":
-        while angle > new_target:
-            send_data(speed, direction, steer)
-            time.sleep(0.05)
-            data = None
-            while not data:
-                data = read_latest()
-            angle, _, _, _, _ = data
-    elif sign == ">":
-        while angle < new_target:
-            send_data(speed, direction, steer)
-            time.sleep(0.05)
-            data = None
-            while not data:
-                data = read_latest()
-            angle, _, _, _, _ = data
-
-    send_data(0, 0, 0)
 
 # Image Processing Functions
 def show_camera(frame):
@@ -877,11 +816,6 @@ def start_live_ui():
     if SHOW_LIVE_UI:
         threading.Thread(target=live_ui_loop, daemon=True, name="LiveRobotUI").start()
 
-def get_frame(cap):
-    ret, frame = cap.read()
-    while not ret:
-        ret, frame = cap.read()
-    return frame
 
 def adjust_frame(frame):
     adjusted = cv2.convertScaleAbs(frame, alpha=CONTRAST, beta=BRIGHTNESS)
@@ -904,895 +838,26 @@ def camera_view_side_fraction(corner_count, now, post_corner_until):
     return max(0.0, min(0.49, max(CAMERA_SIDE_MASK_FRACTION, post_corner_fraction)))
 
 
-def central_camera_view(frame, side_fraction):
-    """Hide both sides without changing detector pixel coordinates."""
-    margin = int(round(frame.shape[1] * side_fraction))
-    if margin <= 0:
+
+
+def asymmetric_camera_view(frame, left_fraction, right_fraction):
+    """Mask independent side margins without changing detector coordinates."""
+    left_margin = int(round(frame.shape[1] * left_fraction))
+    right_margin = int(round(frame.shape[1] * right_fraction))
+    if left_margin <= 0 and right_margin <= 0:
         return frame
     narrowed = frame.copy()
-    # Neutral gray stays outside the red, green, blue, and orange LAB ranges.
-    narrowed[:, :margin] = 128
-    narrowed[:, -margin:] = 128
+    if left_margin > 0:
+        narrowed[:, :left_margin] = 128
+    if right_margin > 0:
+        narrowed[:, frame.shape[1] - right_margin:] = 128
     return narrowed
 
-def process_frame(frame, masks, colors, DIR, SHOW=False):
-    results = []
 
-    frame = adjust_frame(frame)
-
-    height = frame.shape[0]
-
-    if DIR == "clockwise":
-        third_line = height // 3
-    else:
-        third_line = height // 2
-
-    lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-
-    for name, (lower, upper) in masks.items():
-        mask = cv2.inRange(lab, lower, upper)
-
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        for cnt in contours:
-            area = cv2.contourArea(cnt)
-            if area > 500:
-                x, y, w, h = cv2.boundingRect(cnt)
-                if y + h > third_line:
-                    results.append((name, area))
-
-                    if SHOW:
-                        # Draw bounding rectangle
-                        cv2.rectangle(frame, (x, y), (x + w, y + h), colors[name], 2)
-                        # Put label
-                        cv2.putText(frame, f"{name} ({area})", (x, y - 10),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, colors[name], 2)
-
-    results.sort(key=lambda t: t[1], reverse=True)
-
-    if SHOW:
-        cv2.line(frame, (0, third_line), (frame.shape[1], third_line), (0, 255, 255), 2)
-        publish_detection_view(frame)
-
-
-    return results
-
-def detect_biggest_block(frame, SHOW=False):
-    global last_turn, DIRECTION, last_cooldown
-    full_h, full_w, _ = frame.shape
-    roi_start = int(full_h * 0.2)
-    frame = frame[roi_start:full_h, 0:full_w]
-
-    adjusted = cv2.convertScaleAbs(frame, alpha=CONTRAST, beta=BRIGHTNESS)
-    adjusted = cv2.LUT(adjusted, table)
-
-    lab = cv2.cvtColor(adjusted, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(lab)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    l_clahe = clahe.apply(l)
-    lab_clahe = cv2.merge((l_clahe, a, b))
-    adjusted_frame = cv2.cvtColor(lab_clahe, cv2.COLOR_LAB2BGR)
-
-    lab_frame = cv2.cvtColor(adjusted_frame, cv2.COLOR_BGR2LAB)
-    lab_raw = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-
-    detections = {"red": [], "green": [], "blue": [], "orange": []}
-    blue_y_values, orange_y_values = [], []
-
-    for color, (lower, upper) in COLOR_RANGES.items():
-        lower_bound = np.array(lower, dtype=np.uint8)
-        upper_bound = np.array(upper, dtype=np.uint8)
-        source_lab = lab_raw if color == "orange" else lab_frame
-        mask = cv2.inRange(source_lab, lower_bound, upper_bound)
-        kernel = np.ones((3, 3), np.uint8)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=2)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for cnt in contours:
-            area = cv2.contourArea(cnt)
-            if area < MIN_AREA.get(color, 0):
-                continue
-            x, y, w_box, h_box = cv2.boundingRect(cnt)
-            cx, cy = x + w_box // 2, y + h_box // 2
-            detections[color].append((cx, cy, area, color))
-            if color == "blue":
-                blue_y_values.append(cy)
-            elif color == "orange":
-                orange_y_values.append(cy)
-            if SHOW:
-                cv2.rectangle(frame, (x, y), (x + w_box, y + h_box), colors[color], 2)
-                cv2.circle(frame, (cx, cy), 4, colors[color], -1)
-                cv2.putText(frame, f"{color} ({area})", (x, y - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, colors[color], 2)
-
-    max_blue_y = max(blue_y_values) if blue_y_values else None
-    max_orange_y = max(orange_y_values) if orange_y_values else None
-
-    valid_blocks = []
-    for color in ["red", "green"]:
-        for (cx, cy, area, col) in detections[color]:
-            if time.time() - last_cooldown > COOLDOWN:
-                if max_blue_y and cy <= max_blue_y:
-                    continue
-                if max_orange_y and cy <= max_orange_y:
-                    continue
-
-            ### CODENAME PENDING FAILSAFE
-            cy_full = cy + roi_start
-            cell_w = full_w // 5
-            cell_h = full_h // 5
-            col_idx = cx // cell_w
-            row_idx = cy_full // cell_h
-            cell_num = row_idx * 5 + col_idx + 1
-
-            if DIRECTION == "anticlockwise" and cell_num in [1, 6, 11, 16, 21]:
-                if time.time() - last_turn <= 1:
-                    print("CODENAMING PENDING FAILSAFE")
-                    continue
-
-            valid_blocks.append((col, cy, cx, area))
-
-    closest_block = None
-    if valid_blocks:
-        closest_block = max(valid_blocks, key=lambda b: b[1])
-        color, cy, cx, area = closest_block
-        cy_full = cy + roi_start
-        x_percent = (cx / full_w) * 100
-        y_percent = ((full_h - cy_full) / full_h) * 100
-        cell_w = full_w // 5
-        cell_h = full_h // 5
-        col_idx = cx // cell_w
-        row_idx = cy_full // cell_h
-        cell_number = row_idx * 5 + col_idx + 1
-    else:
-        color, cy, cx, area, cell_number, x_percent, y_percent = (None, None, None, None, None, None, None)
-
-    special_case = 0
-    if DIRECTION == "anticlockwise" and detections["green"]:
-        cell_w = full_w // 5
-        cell_h = full_h // 5
-        green_in_right = False
-        green_in_left_front = False
-        for (cx_g, cy_g, area_g, _) in detections["green"]:
-            cy_full_g = cy_g + roi_start
-            col_idx = cx_g // cell_w
-            row_idx = cy_full_g // cell_h
-            cell_num = row_idx * 5 + col_idx + 1
-            if cell_num in [5, 10, 15, 20, 25] and area_g > 30000:
-                green_in_right = True
-            if cell_num % 5 in [1, 2, 3, 4]:
-                if ((max_blue_y and cy_g > max_blue_y) or (max_orange_y and cy_g > max_orange_y)):
-                    if area_g > 7000:
-                        green_in_left_front = True
-        if green_in_right and green_in_left_front:
-            special_case = 1
-    elif DIRECTION == "clockwise" and detections["red"]:
-        cell_w = full_w // 5
-        cell_h = full_h // 5
-        red_in_left = False
-        red_in_right_front = False
-        for (cx_r, cy_r, area_r, _) in detections["red"]:
-            cy_full_r = cy_r + roi_start
-            col_idx = cx_r // cell_w
-            row_idx = cy_full_r // cell_h
-            cell_num = row_idx * 5 + col_idx + 1
-            if cell_num in [1, 6, 11, 16, 21] and area_r > 20000:
-                red_in_left = True
-            if cell_num % 5 in [4, 0]:
-                if ((max_blue_y and cy_r > max_blue_y) or (max_orange_y and cy_r > max_orange_y)):
-                    if area_r > 7000:
-                        red_in_right_front = True
-        if red_in_left and red_in_right_front:
-            special_case = 1
-
-    if SHOW:
-        cell_w = full_w // 5
-        cell_h = full_h // 5
-        display = frame.copy()
-        for i in range(1, 5):
-            cv2.line(display, (i * cell_w, 0), (i * cell_w, frame.shape[0]), (200, 200, 200), 1)
-        for j in range(1, 5):
-            y_line = j * cell_h - roi_start
-            if 0 <= y_line < frame.shape[0]:
-                cv2.line(display, (0, y_line), (frame.shape[1], y_line), (200, 200, 200), 1)
-        num = 1
-        for r in range(5):
-            for c in range(5):
-                y_pos = r * cell_h + 20 - roi_start
-                if 0 <= y_pos < frame.shape[0]:
-                    x_pos = c * cell_w + 10
-                    cv2.putText(display, str(num), (x_pos, y_pos),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (180, 180, 180), 1)
-                num += 1
-        if closest_block:
-            cv2.rectangle(display, (cx - 20, cy - 20), (cx + 20, cy + 20), (0, 255, 255), 3)
-            cv2.putText(display, f"Closest: {color} Cell:{cell_number}",
-                        (cx, cy - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-        publish_detection_view(display)
-
-    return (color if closest_block else None,
-            y_percent if closest_block else None,
-            x_percent if closest_block else None,
-            area if closest_block else None,
-            cell_number if closest_block else None,
-            special_case)
 
 # Running Functions
-def exit_parking_lot():
-    global DIRECTION
-    data = [None, None, None, None, None]
-    while not data[2]:
-        data = read_data()
-        flush_serial()
-    angle, left, front, right, ir = data
-    if left > right:
-        DIRECTION = "anticlockwise"
-    else:
-        DIRECTION = "clockwise"
-    print(f"DIRECTION: {DIRECTION}")
 
-    if DIRECTION == "clockwise":
-        steer_until_angle(0, 10, PARKING_SPEED, 0, 50)
-        steer_until_angle(10, 25, PARKING_SPEED, 1, -50)
-        steer_until_angle(25, 45, PARKING_SPEED, 0, 50)
 
-    elif DIRECTION == "anticlockwise":
-        steer_until_angle(0, -10, PARKING_SPEED, 0, -50)
-        steer_until_angle(-10, -25, PARKING_SPEED, 1, 50)
-        steer_until_angle(-25, -45, PARKING_SPEED, 0, -50)
-
-def first_block_sequence():
-    global DIRECTION
-    detected_blocks = []
-    itr = 0
-    Flag = True
-    while Flag:
-        itr += 1
-
-        if itr >= 20:
-            break
-
-        # The previous exit manoeuvre ends with speed 0. Keep moving while
-        # checking the first block and keep the ESP32 command watchdog alive.
-        send_data(PARKING_SPEED, 0, 0)
-        detected_blocks = process_frame(get_frame(cap), masks, colors, SHOW=True, DIR=DIRECTION)
-
-        Flag2 = True
-        while len(detected_blocks) > 0 and Flag2:
-            for object in detected_blocks:
-                if object[0] == "blue":
-                    detected_blocks.remove(object)
-                    continue
-                else:
-                    Flag = False
-                    Flag2 = False
-
-    if detected_blocks:
-        if detected_blocks[0][0] == "red" and DIRECTION == "anticlockwise":
-            steer_until_angle(-45, -30, PARKING_SPEED, 0, 10)
-            steer_until_angle(-30, -0, PARKING_SPEED, 0, 20)
-
-        elif detected_blocks[0][0] == "green" and DIRECTION == "anticlockwise":
-            steer_until_angle(-45, -90, PARKING_SPEED, 0, -35)
-            send_data(PARKING_SPEED, 0, 0)
-            distance = 100
-            while distance >= 25:
-                send_data(PARKING_SPEED, 0, 0)
-                _, _, distance, _, _ = read_data()
-                while not distance:
-                    _, _, distance, _, _ = read_data()
-            steer_until_angle(-90, 0, PARKING_SPEED, 0, 50)
-
-        elif detected_blocks[0][0] == "green" and DIRECTION == "clockwise":
-            steer_until_angle(45, 30, PARKING_SPEED, 0, -20)
-            steer_until_angle(30, 0, PARKING_SPEED, 0, -30)
-
-        elif detected_blocks[0][0] == "red" and DIRECTION == "clockwise":
-            steer_until_angle(45, 70, PARKING_SPEED, 0, 35)
-            send_data(PARKING_SPEED, 0, 0)
-            distance = 100
-            while distance >= 20:
-                send_data(PARKING_SPEED, 0, 0)
-                _, _, distance, _, _ = read_data()
-                while not distance:
-                    _, _, distance, _, _ = read_data()
-            steer_until_angle(90, 0, PARKING_SPEED, 0, -50)
-
-    elif DIRECTION == "anticlockwise":
-        steer_until_angle(-45, -30, PARKING_SPEED, 0, 10)
-        steer_until_angle(-30, -0, PARKING_SPEED, 0, 20)
-
-    elif DIRECTION == "clockwise":
-        steer_until_angle(45, 30, PARKING_SPEED, 0, -20)
-        steer_until_angle(30, 0, PARKING_SPEED, 0, -30)
-
-def main_logic():
-    global DIRECTION, KP, SPEED, COUNTER
-    global last_turn, target_angle, last_block_pass, last_cooldown
-    global ir, left, right, front
-    global InnerStuckFailsafeFlag, OuterStuckFailsafeFlag
-    left = 1000
-    right = 1000
-    ir = 0
-
-    if DIRECTION == "anticlockwise":
-        angle = 0
-        while COUNTER < COUNTER_MAX:
-            ret, frame = cap.read()
-            if not ret:
-                continue
-
-            block = detect_biggest_block(frame, SHOW=True)
-
-            data = read_data()
-            print(data)
-            last_left = left
-            if data and data[2]:
-                angle, left, front, right, ir = data
-                # print(data)
-
-            # print(angle_diff(target_angle, angle))
-            if (angle_diff(target_angle, angle) > 50 and time.time() - last_turn < 5) or (angle_diff(target_angle, angle) > 60) or (angle_diff(target_angle, angle) > 50 and time.time() - last_turn > 10):
-                print("GOING WRONG DIRECTION FAILSAFE")
-                send_data(SPEED, 0, 40)
-                time.sleep(0.5)
-                send_data(0, 0, 0)
-                data = wait_until_and_read_data()
-                angle, left, front, right, ir = data
-                continue
-
-            # print(block)
-
-            if not block[0] and time.time() - last_turn > 5 and time.time() - last_block_pass > 2: ### FAILSAFE --> It doesn't speed up after a turn for 5s
-                SPEED = SPEED
-            else:
-                SPEED = SPEED_NO_AURA_FARM
-
-            # REVERSE PRECEDENCE
-            if block[1] and block[1] < 20 and block[2] > 40 and block[2] < 60:
-                send_data(0, 0, 0)
-                time.sleep(0.2)
-                send_data(80, 1, 0)
-                time.sleep(2)
-                send_data(0, 0, 0)
-                flush_serial()
-                ret = None
-                while not ret:
-                    ret, frame = cap.read()
-                ret = None
-                while not ret:
-                    ret, frame = cap.read()
-                continue
-
-            if ir == 1:
-                ### IR REVERSE FAILSAFE
-                print("IR REVERSE FAILSAFE")
-                send_data(80, 1, 0)
-                time.sleep(1)
-                if COUNTER % 4 == 0:
-                    time.sleep(1)
-                    steer_until_angle(0, -30, 100, 0, -50)
-                    steer_until_angle(-30, 0, 100, 0, 50)
-                send_data(0, 0, 0)
-                flush_serial()
-                ir = 1
-                while ir:
-                    data = None
-                    while not data[2]:
-                        data = read_data()
-                    angle, left, front, right, ir = data
-                ret = None
-                while not ret:
-                    ret, frame = cap.read()
-                continue
-
-            if ir == 1:
-                send_data(80, 1, 0)
-                time.sleep(1)
-                send_data(0, 0, 0)
-                flush_serial()
-
-            ### INNER STUCK FAILSAFE
-            if left < 5 and right > 60:
-                if not InnerStuckFailsafeFlag:
-                    InnerStuckFailsafeFlag = True
-                    last_inner_stuck = time.time()
-                elif InnerStuckFailsafeFlag and time.time() - last_inner_stuck > 5:
-                    send_data(80, 1, -10)
-                    time.sleep(1)
-                    send_data(80, 0, 10)
-                    time.sleep(1)
-                    send_data(0, 0, 0)
-                    data = wait_until_and_read_data()
-                    InnerStuckFailsafeFlag = False
-                    continue
-
-            ### OUTER STUCK FAILSAFE
-            if right < 5 and left > 60:
-                if not OuterStuckFailsafeFlag:
-                    OuterStuckFailsafeFlag = True
-                    last_outer_stuck = time.time()
-                elif OuterStuckFailsafeFlag and time.time() - last_outer_stuck > 5:
-                    send_data(80, 1, 10)
-                    time.sleep(1)
-                    send_data(80, 0, -10)
-                    time.sleep(1)
-                    send_data(0, 0, 0)
-                    data = wait_until_and_read_data()
-                    OuterStuckFailsafeFlag = False
-                    continue
-
-            # BLOCK AVOID PRECEDENCE
-
-            # Matrix
-            ### DOUBLE TROUBLE FAILSAFE
-            if block[5]:
-                print("DOUBLE TROUBLE FAILSAFE ACTIVATED")
-                send_data(80, 0, 0)
-                time.sleep(2)
-                send_data(0, 0, 0)
-                flush_serial()
-
-            if block[0] and block[3] > 4000:
-                # if block[4] in [] ### AFTERTURN EXTREME FAILSAFE
-                color, y, x, area, cell, dt_failsafe_flag = block
-
-                if color == "red" or color == "green":
-                    last_block_pass = time.time()
-                if color == "red":
-                    if red_turning_values[cell-1] != -1:
-                        send_data(SPEED, 0, int(red_turning_values[cell-1]))
-                        if COUNTER % 4 == 0:
-                            send_data(SPEED, 0, int(red_turning_values_4th_turn_anti[cell-1]))
-                        elif area < 3000:
-                            send_data(SPEED, 0, red_turning_values_less_than_3000[cell - 1])
-                        continue
-                    elif red_turning_values[cell-1] == -1:
-                        send_data(80, 1, 0)
-                        time.sleep(1)
-                        send_data(0, 0, 0)
-                        flush_serial()
-                        continue
-                    else:
-                        error = angle_diff(target_angle, angle)
-                        send_data(SPEED, 0, error)
-                elif color == "green":
-                    if green_turning_values[cell-1] != -1: ### DOUBLE TROUBLE KINDA FAILSAFE
-                        if abs(angle_diff(target_angle, angle)) < 5 and left > 100 and time.time() - last_turn > 5:
-                            print("DOUBLE TROUBLE KINDA FAILSWAFE")
-                            send_data(80, 0, 0)
-                            time.sleep(1)
-                            send_data(0, 0, 0)
-                            continue
-                        send_data(SPEED, 0, int(green_turning_values[cell-1] * BLOCK_MULITPLIER_GREEN_ANTI))
-                        continue
-                    elif green_turning_values[cell-1] == -1:
-                        send_data(0, 0, 0)
-                        data = wait_until_and_read_data()
-                        angle, left, front, right, ir = data
-                        if abs(angle_diff(target_angle, angle)) < 5:
-                            if left > 100:
-                                send_data(80, 0, 0)
-                                time.sleep(1)
-                                send_data(0, 0, 0)
-                        send_data(80, 1, 0)
-                        time.sleep(1)
-                        send_data(0, 0, 0)
-                        flush_serial()
-                        continue
-                    # else:
-                    #     error = angle_diff(target_angle, angle)
-                    #     send_data(SPEED, 0, error)
-            # Other
-            # if block[0]:
-            #     if area > 4000 and y < 85:
-            #         if color == "red":
-            #             send_data(SPEED, 0, 25)
-            #             continue
-            #         elif color == "green":
-            #             send_data(SPEED, 0, -25)
-            #             continue
-
-            # TURN PRECEDENCE
-
-            data = read_data()
-            last_left = left
-            if data[2]:
-                angle, left, front, right, ir = data
-                # print(data)
-
-            # PARKING PRECEDENCE
-            if data[2] == 0 and COUNTER == COUNTER_MAX - 1 and time.time() - last_turn > 7.5 and left > 100 and abs(angle_diff(0, angle)) < 15:
-                send_data(0, 0, 0)
-                data = wait_until_and_read_data()
-                if abs(angle_diff(0, data[0])) > 10:
-                    continue
-                if data[1] < 100:
-                    continue
-                print("MAIN LOOP COMPLETE")
-                send_data(0, 0, 0)
-                return
-
-            # print(left, front)
-            # if COUNTER == COUNTER_MAX - 1 and front < 15 and not block[0]:
-            #     print("PARKING")
-            #     parking()
-            #     exit()
-
-            if front < 15 and block[0] == None and (left > 100 or ((COUNTER + 1) % 4 == 0 and left > 50)) and COUNTER != COUNTER_MAX - 1:
-                ### FALSE TURN FAILSAFE
-                data = None
-                while not data:
-                    data = read_data()
-                    if data[2]:
-                        angle, left, front, right, ir = data
-                    else:
-                        continue
-                if abs(angle_diff(normalize_angle(target_angle+5), angle)) > 20:
-                    send_data(80, 1, 0)
-                    time.sleep(1)
-                    send_data(0, 0, 0)
-                    flush_serial()
-                    continue
-                target_angle = normalize_angle(target_angle - 90)
-                COUNTER += 1
-                print(f"COUNTER = {COUNTER}, TARGET={target_angle}")
-                if right >= 25:
-                    while True:
-                        send_data(TURNING_SPEED, 1, 40)
-
-                        data = read_data()
-                        if not data[2]:
-                            continue
-                        angle, left, front, right, ir = data
-
-                        err = angle_diff(normalize_angle(target_angle+10), angle)
-                        if err >= -10:
-                            send_data(80, 1, 0)
-                            time.sleep(BACK_AFTER_TURN_TIME)
-                            send_data(0, 0, 0)
-                            last_turn = time.time()
-                            last_cooldown = time.time()
-                            break
-                elif right <= 25:
-                    send_data(80, 1, 0)
-                    time.sleep(BACK_BEFORE_TURN_TIME)
-                    send_data(0, 0, 0)
-                    while True:
-                        send_data(TURNING_SPEED, 0, -40)
-                        data = read_data()
-                        if not data[2]:
-                            continue
-                        angle, left, front, right, ir = data
-
-                        err = angle_diff(normalize_angle(target_angle+10), angle)
-
-                        if err >= -10:
-                            send_data(80, 1, 0)
-                            time.sleep(BACK_AFTER_TURN_TIME)
-                            send_data(0, 0, 0)
-                            last_turn = time.time()
-                            last_cooldown = time.time()
-                            break
-                flush_serial()
-            # elif front < 15 and COUNTER % 4 == 0:
-            #     print("PARKING LOT COLLISION FAILSAFE")
-            #     send_data(80, 1, 0)
-            #     time.sleep(1)
-            #     send_data(0, 0, 0)
-            #     steer_until_angle(0, -10, 80, 0, -50)
-            #     steer_until_angle(-10, -25, 80, 1, 50)
-            #     steer_until_angle(-25, -45, 80, 0, -50)
-
-
-            # PID PRECEDENCE
-            if COUNTER % 4 == 0:
-                error = angle_diff(normalize_angle(target_angle - 4), angle)
-            else:
-                error = angle_diff(target_angle, angle)
-            send_data(SPEED, 0, error)
-            if COUNTER == COUNTER_MAX - 1:
-                print("COUNTER MAX - 1")
-            if COUNTER == COUNTER_MAX - 1 and time.time() - last_turn > 7.5 and left > 100 and abs(angle_diff(0, angle)) < 15:
-                send_data(0, 0, 0)
-                data = wait_until_and_read_data()
-                if abs(angle_diff(0, data[0])) > 10:
-                    continue
-                if data[1] < 100:
-                    continue
-                print("MAIN LOOP COMPLETE")
-                send_data(0, 0, 0)
-                return
-    if DIRECTION == "clockwise":
-        angle = 0
-        while COUNTER < COUNTER_MAX:
-            ret, frame = cap.read()
-            if not ret:
-                continue
-
-            block = detect_biggest_block(frame, SHOW=True)
-
-            data = read_data()
-            print(data)
-            last_left = left
-            if data and data[2]:
-                angle, left, front, right, ir = data
-                # print(data)
-
-            # print(angle_diff(target_angle, angle))
-            if (angle_diff(target_angle, angle) < -50 and time.time() - last_turn < 5) or (angle_diff(target_angle, angle) < -60) or (angle_diff(target_angle, angle) < -50 and time.time() - last_turn > 10):
-                print("GOING WRONG DIRECTION FAILSAFE")
-                send_data(SPEED, 0, -40)
-                time.sleep(0.5)
-                send_data(0, 0, 0)
-                data = wait_until_and_read_data()
-                angle, left, front, right, ir = data
-                continue
-
-            # print(block)
-
-            if not block[0] and time.time() - last_turn > 5 and time.time() - last_block_pass > 2: ### FAILSAFE --> It doesn't speed up after a turn for 5s
-                SPEED = SPEED
-            else:
-                SPEED = SPEED_NO_AURA_FARM
-
-            # REVERSE PRECEDENCE
-            if block[1] and block[1] < 20 and block[2] > 40 and block[2] < 60:
-                send_data(0, 0, 0)
-                time.sleep(0.2)
-                send_data(80, 1, 0)
-                time.sleep(1)
-                send_data(0, 0, 0)
-                flush_serial()
-                ret = None
-                while not ret:
-                    ret, frame = cap.read()
-                ret = None
-                while not ret:
-                    ret, frame = cap.read()
-                continue
-
-            if ir == 1:
-                ### IR REVERSE FAILSAFE
-                print("IR REVERSE FAILSAFE")
-                send_data(80, 1, 0)
-                time.sleep(1)
-                if COUNTER % 4 == 0:
-                    time.sleep(1)
-                    steer_until_angle(0, -30, 100, 0, -50)
-                    steer_until_angle(-30, 0, 100, 0, 50)
-                send_data(0, 0, 0)
-                flush_serial()
-                ir = 1
-                while ir:
-                    data = None
-                    while not data[2]:
-                        data = read_data()
-                    angle, left, front, right, ir = data
-                ret = None
-                while not ret:
-                    ret, frame = cap.read()
-                continue
-
-            if ir == 1:
-                send_data(80, 1, 0)
-                time.sleep(1)
-                send_data(0, 0, 0)
-                flush_serial()
-
-            ### LEFT STUCK FAILSAFE
-            if left < 5 and right > 60:
-                if not InnerStuckFailsafeFlag:
-                    InnerStuckFailsafeFlag = True
-                    last_inner_stuck = time.time()
-                elif InnerStuckFailsafeFlag and time.time() - last_inner_stuck > 5:
-                    send_data(80, 1, -10)
-                    time.sleep(1)
-                    send_data(80, 0, 10)
-                    time.sleep(1)
-                    send_data(0, 0, 0)
-                    data = wait_until_and_read_data()
-                    InnerStuckFailsafeFlag = False
-                    continue
-
-            ### RIGHT STUCK FAILSAFE
-            if right < 5 and left > 60:
-                if not OuterStuckFailsafeFlag:
-                    OuterStuckFailsafeFlag = True
-                    last_outer_stuck = time.time()
-                elif OuterStuckFailsafeFlag and time.time() - last_outer_stuck > 5:
-                    send_data(80, 1, 10)
-                    time.sleep(1)
-                    send_data(80, 0, -10)
-                    time.sleep(1)
-                    send_data(0, 0, 0)
-                    data = wait_until_and_read_data()
-                    OuterStuckFailsafeFlag = False
-                    continue
-
-            # PARKING PRECEDENCE FRFR
-
-            if COUNTER == COUNTER_MAX - 1 and right < 80 and abs(angle_diff(0, angle)) < 15:
-                send_data(0, 0, 0)
-                data = wait_until_and_read_data()
-                angle, left, front, right, ir = data
-                if right > 80:
-                    continue
-                if abs(angle_diff(0, data[0])) > 10:
-                    continue
-                print("MAIN LOOP COMPLETE -- 24")
-                send_data(0, 0, 0)
-                return
-
-            # BLOCK AVOID PRECEDENCE
-
-            # Matrix
-            ### DOUBLE TROUBLE FAILSAFE
-            if block[5]:
-                print("DOUBLE TROUBLE FAILSAFE ACTIVATED")
-                send_data(80, 0, 0)
-                time.sleep(2)
-                send_data(0, 0, 0)
-                flush_serial()
-
-            if block[0] and block[3] > 4000:
-                # if block[4] in [] ### AFTERTURN EXTREME FAILSAFE
-                color, y, x, area, cell, dt_failsafe_flag = block
-
-                if color == "red" or color == "green":
-                    last_block_pass = time.time()
-                if color == "red":
-                    if red_turning_values[cell-1] != -1:
-                        if abs(angle_diff(target_angle, angle)) < 5 and right > 100 and time.time() - last_turn > 5: ### DOUBLE TROUBLE KINDA FAILSAFE
-                            print("DOUBLE TROUBLE KINDA FAILSWAFE")
-                            send_data(80, 0, 0)
-                            time.sleep(1)
-                            send_data(0, 0, 0)
-                            continue
-                        send_data(SPEED, 0, int(red_turning_values[cell-1]))
-                        continue
-                    elif red_turning_values[cell-1] == -1:
-                        send_data(80, 1, 0)
-                        time.sleep(1)
-                        send_data(0, 0, 0)
-                        flush_serial()
-                        continue
-                    else:
-                        error = angle_diff(target_angle, angle)
-                        send_data(SPEED, 0, error)
-                elif color == "green":
-                    if green_turning_values[cell-1] != -1: ### DOUBLE TROUBLE KINDA FAILSAFE
-                        send_data(SPEED, 0, int(green_turning_values[cell-1] * BLOCK_MULITPLIER_GREEN_ANTI))
-                        if COUNTER % 4 == 0:
-                            send_data(SPEED, 0, int(green_turning_values_4th_turn_clock[cell-1])) ##### PENDING:
-                        continue
-                    elif green_turning_values[cell-1] == -1:
-                        send_data(0, 0, 0)
-                        data = wait_until_and_read_data()
-                        angle, left, front, right, ir = data
-                        send_data(80, 1, 0)
-                        time.sleep(1)
-                        send_data(0, 0, 0)
-                        flush_serial()
-                        continue
-                    # else:
-                    #     error = angle_diff(target_angle, angle)
-                    #     send_data(SPEED, 0, error)
-            # Other
-            # if block[0]:
-            #     if area > 4000 and y < 85:
-            #         if color == "red":
-            #             send_data(SPEED, 0, 25)
-            #             continue
-            #         elif color == "green":
-            #             send_data(SPEED, 0, -25)
-            #             continue
-
-            # TURN PRECEDENCE
-
-            data = read_data()
-            last_left = left
-            if data[2]:
-                angle, left, front, right, ir = data
-                # print(data)
-
-            # PARKING PRECEDENCE
-            if data[2] == 0 and COUNTER == COUNTER_MAX - 1 and right < 80 and abs(angle_diff(0, angle)) < 15:
-                send_data(0, 0, 0)
-                data = wait_until_and_read_data()
-                if abs(angle_diff(0, data[0])) > 10:
-                    continue
-                if data[1] < 100:
-                    continue
-                send_data(80, 0, 0)
-                time.sleep(0.5)
-                send_data(0, 0, 0)
-                if right > 80:
-                    continue
-                print("MAIN LOOP COMPLETE")
-                send_data(0, 0, 0)
-                return
-
-            # print(left, front)
-            # if COUNTER == COUNTER_MAX - 1 and front < 15 and not block[0]:
-            #     print("PARKING")
-            #     parking()
-            #     exit()
-
-            if front < 15 and block[0] == None and (right > 100 or ((COUNTER + 1) % 4 == 0)) and COUNTER != COUNTER_MAX - 1:
-                ### FALSE TURN FAILSAFE
-                data = None
-                while not data:
-                    data = read_data()
-                    if data[2]:
-                        angle, left, front, right, ir = data
-                    else:
-                        continue
-                if abs(angle_diff(normalize_angle(target_angle-5), angle)) > 20:
-                    send_data(80, 1, 0)
-                    time.sleep(1)
-                    send_data(0, 0, 0)
-                    flush_serial()
-                    continue
-                target_angle = normalize_angle(target_angle + 90)
-                COUNTER += 1
-                print(f"COUNTER = {COUNTER}, TARGET={target_angle}")
-                if left >= 25:
-                    while True:
-                        send_data(TURNING_SPEED, 1, -40)
-
-                        data = read_data()
-                        if not data[2]:
-                            continue
-                        angle, left, front, right, ir = data
-
-                        err = angle_diff(normalize_angle(target_angle-10), angle)
-                        if err <= 10:
-                            send_data(80, 1, 0)
-                            time.sleep(BACK_AFTER_TURN_TIME)
-                            send_data(0, 0, 0)
-                            last_turn = time.time()
-                            last_cooldown = time.time()
-                            break
-                elif left <= 25:
-                    send_data(80, 1, 0)
-                    time.sleep(BACK_BEFORE_TURN_TIME)
-                    send_data(0, 0, 0)
-                    while True:
-                        send_data(TURNING_SPEED, 0, 40)
-                        data = read_data()
-                        if not data[2]:
-                            continue
-                        angle, left, front, right, ir = data
-
-                        err = angle_diff(normalize_angle(target_angle-10), angle)
-
-                        if err <= 10:
-                            send_data(80, 1, 0)
-                            time.sleep(BACK_AFTER_TURN_TIME)
-                            send_data(0, 0, 0)
-                            last_turn = time.time()
-                            last_cooldown = time.time()
-                            break
-                flush_serial()
-            # elif front < 15 and COUNTER % 4 == 0:
-            #     print("PARKING LOT COLLISION FAILSAFE")
-            #     send_data(80, 1, 0)
-            #     time.sleep(1)
-            #     send_data(0, 0, 0)
-            #     steer_until_angle(0, -10, 80, 0, -50)
-            #     steer_until_angle(-10, -25, 80, 1, 50)
-            #     steer_until_angle(-25, -45, 80, 0, -50)
-
-
-            # PID PRECEDENCE
-            if COUNTER % 4 == 0:
-                error = angle_diff(normalize_angle(target_angle + 4), angle)
-            else:
-                error = angle_diff(target_angle, angle)
-            send_data(SPEED, 0, error)
-            if COUNTER == COUNTER_MAX - 1:
-                print("COUNTER MAX - 1")
 
 @dataclass
 class PillarDetection:
@@ -2100,7 +1165,84 @@ class UnifiedPillarDetector:
         self.deferred_track_id = None
         self.parking_block = None
         self.parking_block_history = deque(maxlen=PARKING_BLOCK_HISTORY)
-        self.parking_geometry_checks = []
+        self.black_corner_history = deque(maxlen=BLACK_CORNER_HISTORY)
+        self.black_corner_candidate = False
+        self.black_corner_confirmed = False
+        self.black_corner_expected_side = None
+        self.black_corner_coverage = 0.0
+        self.black_corner_side_coverage = 0.0
+        self.black_corner_box = None
+
+    def _reset_black_corner(self):
+        self.black_corner_history.clear()
+        self.black_corner_candidate = False
+        self.black_corner_confirmed = False
+        self.black_corner_expected_side = None
+        self.black_corner_coverage = 0.0
+        self.black_corner_side_coverage = 0.0
+        self.black_corner_box = None
+
+    def _detect_black_corner_geometry(self, frame, expected_side):
+        """Confirm a broad black end wall with an opening on the turn side."""
+        frame_h, frame_w = frame.shape[:2]
+        roi_top = int(frame_h * BLACK_CORNER_ROI_TOP_RATIO)
+        roi_bottom = int(frame_h * BLACK_CORNER_ROI_BOTTOM_RATIO)
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(
+            hsv,
+            np.array(BLACK_WALL_HSV_LOWER, dtype=np.uint8),
+            np.array(BLACK_WALL_HSV_UPPER, dtype=np.uint8),
+        )
+        mask[:roi_top, :] = 0
+        mask[roi_bottom:, :] = 0
+        kernel = np.ones((5, 5), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        roi_area = float(max(1, (roi_bottom - roi_top) * frame_w))
+        valid_boxes = []
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            x, y, width, height = cv2.boundingRect(contour)
+            if area < roi_area * BLACK_CORNER_MIN_CONTOUR_AREA_RATIO:
+                continue
+            if width < frame_w * BLACK_CORNER_MIN_WIDTH_RATIO:
+                continue
+            if height < frame_h * BLACK_CORNER_MIN_HEIGHT_RATIO:
+                continue
+            valid_boxes.append((area, x, y, width, height))
+
+        center_left = frame_w // 4
+        center_right = frame_w - center_left
+        center_mask = mask[roi_top:roi_bottom, center_left:center_right]
+        center_coverage = cv2.countNonZero(center_mask) / float(max(1, center_mask.size))
+        if expected_side == "right":
+            side_mask = mask[roi_top:roi_bottom, center_right:frame_w]
+        else:
+            side_mask = mask[roi_top:roi_bottom, 0:center_left]
+        side_coverage = cv2.countNonZero(side_mask) / float(max(1, side_mask.size))
+
+        broad_wall = bool(valid_boxes) and center_coverage >= BLACK_CORNER_MIN_CENTER_COVERAGE
+        expected_opening = (
+            side_coverage <= BLACK_CORNER_MAX_OPEN_SIDE_COVERAGE
+            and side_coverage <= center_coverage * BLACK_CORNER_OPEN_SIDE_RELATIVE_COVERAGE
+        )
+        candidate = broad_wall and expected_side in ("left", "right") and expected_opening
+        self.black_corner_history.append(candidate)
+        self.black_corner_candidate = candidate
+        self.black_corner_confirmed = (
+            len(self.black_corner_history) >= BLACK_CORNER_CONFIRMATION_FRAMES
+            and sum(self.black_corner_history) >= BLACK_CORNER_CONFIRMATION_FRAMES
+        )
+        self.black_corner_expected_side = expected_side
+        self.black_corner_coverage = center_coverage
+        self.black_corner_side_coverage = side_coverage
+        if valid_boxes:
+            _, x, y, width, height = max(valid_boxes, key=lambda item: item[0])
+            self.black_corner_box = (x, y, width, height)
+        else:
+            self.black_corner_box = None
 
     def _detect_course_line_depths(self, frame, roi_top):
         frame_h, frame_w = frame.shape[:2]
@@ -2283,102 +1425,7 @@ class UnifiedPillarDetector:
         area_score = min(1.0, candidate.normalized_area / 0.02)
         return 0.55 * candidate.bottom_norm + 0.35 * candidate.confidence + 0.10 * area_score
 
-    def _detect_entry_parking_block(self, frame, side):
-        """Find the side parking block from its full red outline, including clipped views."""
-        frame_h, frame_w = frame.shape[:2]
-        frame_area = float(frame_h * frame_w)
-        lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-        lower, upper = COLOR_RANGES["red"]
-        mask = cv2.inRange(lab, np.array(lower, dtype=np.uint8), np.array(upper, dtype=np.uint8))
-        mask[:int(frame_h * 0.18), :] = 0
-        mask = cv2.morphologyEx(
-            mask, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (11, 11)),
-            iterations=2,
-        )
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        self.parking_geometry_checks = []
-        candidates = []
-        for contour in contours:
-            # The hull joins the front and side faces into one visible outline.
-            outline = cv2.convexHull(contour)
-            x, y, width, height = cv2.boundingRect(outline)
-            area = cv2.contourArea(outline)
-            if width < 5 or height < 5 or area <= 0:
-                continue
-            width_ratio = width / float(frame_w)
-            height_ratio = height / float(frame_h)
-            bottom = (y + height) / float(frame_h)
-            center = (x + width / 2.0) / float(frame_w)
-            aspect = width / float(height)
-            area_ratio = area / frame_area
-            fill = area / float(width * height)
-            clipped = x <= 3 or x + width >= frame_w - 3
-            profile = "near" if bottom >= 0.60 else "far"
-            prior = self.parking_block if self.parking_block is not None and self.parking_block.confirmed else None
-            continued = False
-            if prior is not None:
-                px, py, pw, ph = prior.bbox
-                overlap_w = max(0, min(x + width, px + pw) - max(x, px))
-                overlap_h = max(0, min(y + height, py + ph) - max(y, py))
-                continued = (
-                    overlap_w * overlap_h >= 0.20 * min(width * height, pw * ph)
-                    and abs(bottom - prior.bottom_norm) <= 0.18
-                )
-            checks = {
-                "side": (center <= 0.40 if side == "left" else center >= 0.60) or continued,
-                "width": width_ratio >= (0.08 if clipped else 0.11),
-                "height": 0.06 <= height_ratio <= 0.78,
-                "area": area_ratio >= (0.008 if profile == "near" else 0.005),
-                "shape": aspect >= (0.40 if clipped else 0.75) and fill >= 0.40,
-                "depth": bottom >= 0.35,
-            }
-            failed = [name for name, passed in checks.items() if not passed]
-            reason = "PASS" if not failed else "FAIL " + ",".join(failed)
-            if width_ratio >= 0.06 and area_ratio >= 0.003:
-                self.parking_geometry_checks.append(((x, y, width, height), profile, reason))
-            if failed:
-                continue
-            candidates.append(ParkingBlockDetection(
-                bbox=(x, y, width, height), center_x_norm=center,
-                bottom_norm=bottom, normalized_area=area_ratio,
-                width_over_height=aspect, rectangularity=fill,
-                profile=profile, geometry_reason=reason,
-            ))
 
-        candidate = max(
-            candidates,
-            key=lambda item: (item.bottom_norm, item.normalized_area),
-            default=None,
-        )
-        self._track_parking_block(candidate)
-
-    def _track_parking_block(self, candidate):
-        if candidate is None:
-            self.parking_block_history.append(False)
-            if self.parking_block is not None:
-                misses = self.parking_block.miss_count + 1
-                if misses >= PARKING_BLOCK_MAX_MISSES:
-                    self.parking_block = None
-                    self.parking_block_history.clear()
-                else:
-                    self.parking_block = replace(
-                        self.parking_block, seen_this_frame=False,
-                        miss_count=misses, hit_count=sum(self.parking_block_history),
-                    )
-            return
-        same_object = (
-            self.parking_block is not None
-            and abs(candidate.center_x_norm - self.parking_block.center_x_norm) <= 0.20
-        )
-        if not same_object:
-            self.parking_block_history.clear()
-        self.parking_block_history.append(True)
-        hits = sum(self.parking_block_history)
-        self.parking_block = replace(
-            candidate, confirmed=hits >= PARKING_BLOCK_CONFIRMATION_HITS,
-            seen_this_frame=True, hit_count=hits, miss_count=0,
-        )
 
     def _detect_parking_block(self, frame, roi_top):
         """Track a wide physical obstacle without using its colour."""
@@ -2602,14 +1649,11 @@ class UnifiedPillarDetector:
                 matches.append((score, candidate))
         return max(matches, key=lambda item: item[0])[1] if matches else None
 
-    def update(self, frame, parking_search=False, parking_side=None):
-        if parking_search:
-            self.release_active()
-            self.last_candidates = []
-            self.actionable_pillar_visible = False
-            self._detect_entry_parking_block(adjust_frame(frame), parking_side)
-            return None
-        self.parking_geometry_checks = []
+    def update(self, frame, black_corner_search=False, black_corner_side=None):
+        if black_corner_search:
+            self._detect_black_corner_geometry(adjust_frame(frame), black_corner_side)
+        else:
+            self._reset_black_corner()
         candidates = self._extract_candidates(frame)
         self.last_candidates = candidates
 
@@ -2700,7 +1744,7 @@ class UnifiedPillarDetector:
         self.deferred_track_id = None
         self.parking_block = None
         self.parking_block_history.clear()
-        self.parking_geometry_checks = []
+        self._reset_black_corner()
 
     def annotate(self, frame, state, steering, heading, sensor_data,
                  pillar_count=0, corner_next=False, second_slot_grace=None):
@@ -2728,6 +1772,28 @@ class UnifiedPillarDetector:
                 2,
             )
 
+        if self.black_corner_box is not None:
+            x, y, width, height = self.black_corner_box
+            black_status_color = (
+                (0, 255, 0) if self.black_corner_confirmed
+                else (0, 255, 255) if self.black_corner_candidate
+                else (0, 128, 255)
+            )
+            cv2.rectangle(
+                display, (x, y), (x + width, y + height), black_status_color, 3
+            )
+            cv2.putText(
+                display,
+                f"BLACK CORNER {'CONFIRMED' if self.black_corner_confirmed else 'CHECK'} "
+                f"center={self.black_corner_coverage:.2f} "
+                f"{self.black_corner_expected_side}={self.black_corner_side_coverage:.2f}",
+                (20, roi_top + 90),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                black_status_color,
+                2,
+            )
+
         if self.parking_block is not None:
             x, y, width, height = self.parking_block.bbox
             draw_color = (
@@ -2752,17 +1818,6 @@ class UnifiedPillarDetector:
                 draw_color,
                 2,
             )
-
-        if state in ("PARKING_BLOCK_SEARCH", "PARKING_IN_ENTER"):
-            for (x, y, width, height), profile, reason in self.parking_geometry_checks:
-                passed = reason == "PASS"
-                color = (0, 255, 0) if passed else (0, 80, 255)
-                cv2.rectangle(display, (x, y), (x + width, y + height), color, 2)
-                cv2.putText(
-                    display, f"BLOCK {profile} {reason}",
-                    (max(5, x), max(25, y - 8)), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.48, color, 2,
-                )
 
         for candidate in self.last_candidates:
             x, y, width, height = candidate.bbox
@@ -2862,7 +1917,7 @@ class UnifiedPillarDetector:
             )
         elif second_slot_grace is not None and second_slot_grace > 0:
             cv2.putText(
-                display, f"SIDE-SENSOR SLOT 2 IN {second_slot_grace:.1f}s", (20, 150),
+                display, f"SLOT 2 TIMEOUT IN {second_slot_grace:.1f}s", (20, 150),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 165, 255), 2,
             )
         return display
@@ -3349,6 +2404,7 @@ class ObstacleChallengeController(NavigationOnlyController):
         self.last_pillar_passed_at = 0.0
         self.committed_pillar_tracks_this_straight = set()
         self.pillar_slots_filled = 0
+        self.first_pillar_slot_filled_at = None
         self.parking_exit_first_pillar_counted = False
         self.last_completed_corner_at = None
         self.narrow_camera_view_until = 0.0
@@ -3412,14 +2468,6 @@ class ObstacleChallengeController(NavigationOnlyController):
         self.parking_exit_scan_count = 0
         self.parking_exit_last_capture_at = 0.0
         self.parking_exit_first_color = None
-        self.parking_entry_search_active = False
-        self.parking_staging_confirmation = 0
-        self.parking_entry_heading = None
-        self.parking_entry_front_samples = 0
-        self.parking_entry_pillar_passed = False
-        self.parking_block_search_active = False
-        self.parking_block_search_heading = None
-
         self.corner_opposite_min_cm = None
         self.initial_corner_reverse_started_at = None
         self.corner_turn_mid_target = None
@@ -3438,6 +2486,54 @@ class ObstacleChallengeController(NavigationOnlyController):
         self.emergency_escape_resume_elapsed = 0.0
         self.pillar_pass_commitment = None
         self.committed_recovery_cycles = 0
+        self.post_turn_asymmetric_view_active = False
+        self.post_turn_asymmetric_view_started = None
+
+    def post_turn_view_fractions(self, now):
+        """Return direction-aware (left, right) detector masks after a corner."""
+        if self.post_turn_asymmetric_view_active:
+            forward_seconds = self.next_corner_forward_seconds or 0.0
+            elapsed = (
+                0.0 if self.post_turn_asymmetric_view_started is None
+                else now - self.post_turn_asymmetric_view_started
+            )
+            if (
+                self.state == "FOLLOW_STRAIGHT"
+                and (forward_seconds >= 1.50 or elapsed >= 12.0)
+            ):
+                self.release_post_turn_view(
+                    f"new straight established; forward={forward_seconds:.2f}s elapsed={elapsed:.2f}s"
+                )
+
+        if self.post_turn_asymmetric_view_active:
+            if DIRECTION == "clockwise":
+                return 0.08, 0.35
+            if DIRECTION == "anticlockwise":
+                return 0.35, 0.08
+
+        symmetric = camera_view_side_fraction(
+            COUNTER, now, self.narrow_camera_view_until
+        )
+        return symmetric, symmetric
+
+    def activate_post_turn_view(self):
+        self.post_turn_asymmetric_view_active = True
+        self.post_turn_asymmetric_view_started = time.monotonic()
+        self.detector.reset_navigation_context()
+        left, right = self.post_turn_view_fractions(time.monotonic())
+        print(
+            f"[ROUND2] POST-TURN VIEW PROTECTED: "
+            f"left={left * 100:.0f}% right={right * 100:.0f}% direction={DIRECTION}"
+        )
+
+    def release_post_turn_view(self, reason, reset_detector=True):
+        if not self.post_turn_asymmetric_view_active:
+            return
+        self.post_turn_asymmetric_view_active = False
+        self.post_turn_asymmetric_view_started = None
+        if reset_detector:
+            self.detector.reset_navigation_context()
+        print(f"[ROUND2] POST-TURN VIEW RELEASED: {reason}")
 
     def transition(self, new_state, reason=""):
         old_state = self.state
@@ -3455,61 +2551,77 @@ class ObstacleChallengeController(NavigationOnlyController):
         if self.run_logger is not None:
             self.run_logger.log_event(self, event, detail)
 
-    def commit_pillar_pass(self, detection, heading, pass_state):
-        """Latch the selected colour and manoeuvre until physical clearance."""
-        if (
-            not self.parking_entry_search_active
-            and detection.track_id not in self.committed_pillar_tracks_this_straight
-        ):
+    def count_pillar_pass(self, detection):
+        """Consume the pillar slot after physical pass completion."""
+        if detection.track_id not in self.committed_pillar_tracks_this_straight:
             self.committed_pillar_tracks_this_straight.add(detection.track_id)
             now = time.monotonic()
-            since_corner = (
-                None if self.last_completed_corner_at is None
-                else now - self.last_completed_corner_at
+            direct_second_slot = (
+                self.pillar_slots_filled == 0
+                and self.last_completed_corner_at is not None
+                and now - self.last_completed_corner_at
+                >= POST_CORNER_DIRECT_SECOND_SLOT_DELAY_SECONDS
             )
-            second_slot_held = (
-                since_corner is not None
-                and since_corner < POST_TURN_SECOND_SLOT_GRACE_SECONDS
+            self.assign_pillar_slots(
+                detection.track_id, detection.color, now, direct_second_slot
             )
-            side_name = "right" if DIRECTION == "clockwise" else "left"
-            side_index = 3 if DIRECTION == "clockwise" else 1
-            side_bit = VALID_RIGHT if DIRECTION == "clockwise" else VALID_LEFT
-            sensor_data = self.current_round2_sensor_data
-            side_cm = sensor_data[side_index] if sensor_data is not None else None
-            side_fills_second = (
-                DIRECTION in ("clockwise", "anticlockwise")
-                and since_corner is not None
-                and since_corner >= POST_TURN_SECOND_SLOT_GRACE_SECONDS
-                and telemetry_is_fresh()
-                and bool(last_telemetry_status["valid_mask"] & side_bit)
-                and _distance_is_valid(side_cm)
-                and side_cm <= PILLAR_SECOND_SLOT_SIDE_CM
-            )
-            previous_slots = self.pillar_slots_filled
-            self.pillar_slots_filled = (
-                MAX_PILLARS_PER_STRAIGHT
-                if side_fills_second
-                else min(
-                    1 if second_slot_held else MAX_PILLARS_PER_STRAIGHT,
-                    self.pillar_slots_filled + 1,
-                )
-            )
-            count = self.pillar_slots_filled
-            reason = (
-                "side-sensor corner pillar" if side_fills_second
-                else "second slot held during post-turn grace" if second_slot_held and previous_slots == 1
-                else "ordinary pillar"
-            )
-            elapsed_detail = "before first corner" if since_corner is None else f"{since_corner:.2f}s"
-            self.record_run_event(
-                "pillar_count_for_straight",
-                f"pillar {count}/{MAX_PILLARS_PER_STRAIGHT} reason={reason} "
-                f"track={detection.track_id} color={detection.color} "
-                f"{side_name}_cm={side_cm} since_corner={elapsed_detail}",
-            )
-            print(f"[ROUND2] PILLAR {count}/{MAX_PILLARS_PER_STRAIGHT}: "
-                  f"{reason}; track={detection.track_id} color={detection.color} "
-                  f"{side_name}_cm={side_cm} since_corner={elapsed_detail}")
+
+    def assign_pillar_slots(self, track_id, color, now, direct_second_slot=False):
+        previous_slots = self.pillar_slots_filled
+        self.pillar_slots_filled = (
+            MAX_PILLARS_PER_STRAIGHT
+            if direct_second_slot
+            else min(MAX_PILLARS_PER_STRAIGHT, previous_slots + 1)
+        )
+        count = self.pillar_slots_filled
+        if previous_slots == 0 and count == 1:
+            self.first_pillar_slot_filled_at = now
+        elif count >= MAX_PILLARS_PER_STRAIGHT:
+            self.first_pillar_slot_filled_at = None
+        reason = (
+            f"post-corner block after {POST_CORNER_DIRECT_SECOND_SLOT_DELAY_SECONDS:.1f}s"
+            if direct_second_slot else "ordinary pillar"
+        )
+        self.record_run_event(
+            "pillar_count_for_straight",
+            f"pillar {count}/{MAX_PILLARS_PER_STRAIGHT} reason={reason} "
+            f"track={track_id} color={color}",
+        )
+        print(f"[ROUND2] PILLAR {count}/{MAX_PILLARS_PER_STRAIGHT}: "
+              f"{reason}; track={track_id} color={color}")
+
+    def enforce_second_slot_timeout(self):
+        """Fill Slot 2 after the configured timeout and prioritize cornering."""
+        if self.pillar_slots_filled != 1:
+            return
+        now = time.monotonic()
+        if self.first_pillar_slot_filled_at is None:
+            self.first_pillar_slot_filled_at = now
+            return
+        if now - self.first_pillar_slot_filled_at < SECOND_PILLAR_SLOT_TIMEOUT_SECONDS:
+            return
+
+        self.pillar_slots_filled = MAX_PILLARS_PER_STRAIGHT
+        self.first_pillar_slot_filled_at = None
+        self.corner_next_after_pillars = True
+        self.corner_armed = True
+        self.corner_confirmation = 0
+        self.reset_corner_zone_lock(armed=True)
+        self.reset_deferred_corner_track()
+        if self.pillar_pass_commitment is None:
+            self.detector.release_active()
+        self.record_run_event(
+            "second_slot_timeout",
+            f"Slot 2 auto-filled after {SECOND_PILLAR_SLOT_TIMEOUT_SECONDS:.1f}s; "
+            "pillar detection locked until corner",
+        )
+        print(
+            f"[ROUND2] SLOT 2 AUTO-FILLED: {SECOND_PILLAR_SLOT_TIMEOUT_SECONDS:.1f}s "
+            "elapsed; CORNER NEXT, ignoring all pillars"
+        )
+    def commit_pillar_pass(self, detection, heading, pass_state):
+        """Latch the selected colour and manoeuvre until physical clearance."""
+        self.count_pillar_pass(detection)
         pass_side = "right" if detection.color == "red" else "left"
         steering_sign = 1 if detection.color == "red" else -1
         self.pillar_pass_commitment = PillarPassCommitment(
@@ -3576,17 +2688,58 @@ class ObstacleChallengeController(NavigationOnlyController):
         if (
             speed > 0
             and direction == 0
-            and self.state in ("PASS_RED_RIGHT", "PASS_GREEN_LEFT", "CONFIRM_PASSED")
+            and self.state in (
+                "ACQUIRE_PILLAR", "PASS_RED_RIGHT", "PASS_GREEN_LEFT", "CONFIRM_PASSED"
+            )
             and self.current_round2_sensor_data is not None
         ):
             left = self.current_round2_sensor_data[1]
             right = self.current_round2_sensor_data[3]
-            left_extremely_close = _distance_is_valid(left) and left <= SIDE_NUDGE_TRIGGER_CM
-            right_extremely_close = _distance_is_valid(right) and right <= SIDE_NUDGE_TRIGGER_CM
-            if left_extremely_close and not right_extremely_close:
-                steering = max(float(steering), SIDE_NUDGE_STEER)
-            elif right_extremely_close and not left_extremely_close:
-                steering = min(float(steering), -SIDE_NUDGE_STEER)
+            mask = last_telemetry_status["valid_mask"]
+            left_valid = bool(mask & VALID_LEFT) and _distance_is_valid(left)
+            right_valid = bool(mask & VALID_RIGHT) and _distance_is_valid(right)
+            left_pressure = (
+                max(0.0, min(1.0, (PILLAR_WALL_WARNING_CM - left)
+                                 / (PILLAR_WALL_WARNING_CM - PILLAR_WALL_EMERGENCY_CM)))
+                if left_valid else 0.0
+            )
+            right_pressure = (
+                max(0.0, min(1.0, (PILLAR_WALL_WARNING_CM - right)
+                                 / (PILLAR_WALL_WARNING_CM - PILLAR_WALL_EMERGENCY_CM)))
+                if right_valid else 0.0
+            )
+
+            # Installed steering sign: positive moves away from the left wall;
+            # negative moves away from the right wall. Blend both sides so the
+            # same rule protects inner and outer walls in either direction.
+            wall_correction = (
+                left_pressure - right_pressure
+            ) * PILLAR_WALL_MAX_CORRECTION
+            steering = float(steering) + wall_correction
+
+            left_critical = left_valid and left <= PILLAR_WALL_CRITICAL_CM
+            right_critical = right_valid and right <= PILLAR_WALL_CRITICAL_CM
+            if left_critical and not right_critical:
+                steering = max(steering, PILLAR_WALL_CRITICAL_STEER)
+            elif right_critical and not left_critical:
+                steering = min(steering, -PILLAR_WALL_CRITICAL_STEER)
+
+            left_emergency = left_valid and left <= PILLAR_WALL_EMERGENCY_CM
+            right_emergency = right_valid and right <= PILLAR_WALL_EMERGENCY_CM
+            if left_emergency or right_emergency:
+                speed = min(speed, PILLAR_WALL_EMERGENCY_SPEED)
+            if left_emergency and not right_emergency:
+                steering = max(steering, PILLAR_WALL_EMERGENCY_STEER)
+            elif right_emergency and not left_emergency:
+                steering = min(steering, -PILLAR_WALL_EMERGENCY_STEER)
+
+            steering = max(-60.0, min(60.0, steering))
+            if left_pressure > 0.0 or right_pressure > 0.0:
+                self.notice(
+                    f"[ROUND2 WALL GUARD] L={left} R={right} "
+                    f"steer={steering:+.1f} speed={speed}",
+                    period=0.25,
+                )
         self.last_steering = float(steering)
         super().command_robot(speed, direction, steering, force=force)
 
@@ -3828,14 +2981,6 @@ class ObstacleChallengeController(NavigationOnlyController):
         self.parking_exit_last_capture_at = self.last_detection_capture_at
         print("[PARKING EXIT] CAMERA DETECTION ON: checking first pillar")
 
-    def suspend_detection_for_parking_in(self):
-        if not self.block_detection_suspended:
-            self.detector.reset_navigation_context()
-        self.block_detection_suspended = True
-        self.locked_track_id = None
-        self.locked_pillar_color = None
-        self.pillar_lost_started_at = None
-        print("[PARKING IN] CAMERA DETECTION OFF: parking manoeuvre locked")
 
     def update_parking_exit_direction(self, data, new_sample):
         global DIRECTION, target_angle
@@ -3913,6 +3058,7 @@ class ObstacleChallengeController(NavigationOnlyController):
         self.parking_exit_first_pillar_counted = self.parking_exit_first_color in ("red", "green")
         if self.parking_exit_first_pillar_counted:
             self.pillar_slots_filled = 1
+            self.first_pillar_slot_filled_at = None
             self.corner_next_after_pillars = True
             self.record_run_event(
                 "parking_exit_first_pillar_counted",
@@ -3983,11 +3129,62 @@ class ObstacleChallengeController(NavigationOnlyController):
                              "PARKING_EXIT_ARC_3", "exit reverse arc")
         elif state == "PARKING_EXIT_ARC_3":
             sign = 1 if DIRECTION == "clockwise" else -1
-            scan_offset = 35 if DIRECTION == "clockwise" else -45
+            scan_offset = 45 if DIRECTION == "clockwise" else -45
             self.parking_arc(data, scan_offset, PARKING_SPEED, 0, 50 * sign,
-                             "PARKING_EXIT_SCAN", "exit arc 3")
-            if self.state == "PARKING_EXIT_SCAN":
-                self.resume_detection_for_parking_exit()
+                             "PARKING_EXIT_FORWARD_ALIGN",
+                             "exit arc 3; short forward heading alignment")
+            if self.state == "PARKING_EXIT_FORWARD_ALIGN":
+                print(
+                    "[PARKING EXIT] Moving forward with moderate steering to "
+                    "bring the heading within +/-8 degrees"
+                )
+        elif state == "PARKING_EXIT_FORWARD_ALIGN":
+            elapsed = time.monotonic() - self.state_started
+            target = self.parking_target(0)
+            heading_error = angle_diff(target, data[0])
+            if (
+                elapsed >= PARKING_EXIT_FORWARD_ALIGN_SECONDS
+                and abs(heading_error) <= PARKING_EXIT_FORWARD_ALIGN_TOLERANCE
+            ):
+                self.brake()
+                self.transition(
+                    "PARKING_EXIT_REVERSE_VIEW",
+                    f"forward alignment complete; heading error={heading_error:+.1f} deg",
+                )
+                print(
+                    "[PARKING EXIT] Heading aligned within +/-8 degrees; "
+                    "reversing with heading correction for exactly 5.0s"
+                )
+            elif elapsed >= PARKING_EXIT_FORWARD_ALIGN_TIMEOUT_SECONDS:
+                self.brake()
+                self.transition("FAULT", "parking-exit forward heading alignment timeout")
+            else:
+                steering = max(
+                    -PARKING_EXIT_FORWARD_ALIGN_MAX_STEER,
+                    min(
+                        PARKING_EXIT_FORWARD_ALIGN_MAX_STEER,
+                        heading_error * PARKING_EXIT_FORWARD_ALIGN_STEER_GAIN,
+                    ),
+                )
+                self.command_robot(PARKING_SPEED, 0, steering)
+        elif state == "PARKING_EXIT_REVERSE_VIEW":
+            elapsed = time.monotonic() - self.state_started
+            target = self.parking_target(0)
+            heading_error = angle_diff(target, data[0])
+            if elapsed >= PARKING_EXIT_REVERSE_VIEW_SECONDS:
+                self.brake()
+                self.record_run_event(
+                    "parking_exit_reverse_complete",
+                    f"5.0s reverse complete; accepting heading error={heading_error:+.1f} deg",
+                )
+                print(
+                    "[PARKING EXIT] 5.0s reverse complete; parking exit finished; "
+                    f"accepting heading error={heading_error:+.1f} deg"
+                )
+                self.complete_parking_exit()
+            else:
+                steering = self.heading_correction(data[0], target=target, reverse=True)
+                self.command_robot(PARKING_SPEED, 1, steering)
         elif state == "PARKING_EXIT_SCAN":
             self.update_parking_exit_scan(detection)
         elif state == "PARKING_EXIT_CW_RETURN_1":
@@ -4074,11 +3271,15 @@ class ObstacleChallengeController(NavigationOnlyController):
                 self.brake()
                 self.transition("FAULT", "red approach exceeded 4s without reaching distance trigger")
                 return
-            self.command_robot(PARKING_SPEED, 0, 30)
+            self.command_robot(PARKING_SPEED, 0, PARKING_EXIT_FIRST_PILLAR_STEER)
             return
         if self.state == "PARKING_EXIT_TIMED_CURVE":
             if self.parking_sequence_elapsed < 2.0:
-                self.command_robot(PARKING_SPEED, 0, 30 * sign)
+                self.command_robot(
+                    PARKING_SPEED,
+                    0,
+                    PARKING_EXIT_FIRST_PILLAR_STEER * sign,
+                )
                 return
             self.parking_exit_final_heading = normalize_angle(data[0] - 90 * sign)
             self.parking_sequence_elapsed = 0.0
@@ -4113,208 +3314,16 @@ class ObstacleChallengeController(NavigationOnlyController):
             return
         self.command_robot(min(PARKING_SPEED, 70), 0, 0)
 
-    def parking_staging_ready(self, data):
-        side_index = 3 if DIRECTION == "clockwise" else 1
-        side_bit = VALID_RIGHT if DIRECTION == "clockwise" else VALID_LEFT
-        mask = last_telemetry_status["valid_mask"]
-        return (
-            (mask & (VALID_CENTER | side_bit)) == (VALID_CENTER | side_bit)
-            and _distance_is_valid(data[2])
-            and _distance_is_valid(data[side_index])
-            and data[2] <= PARKING_IN_STOP_FRONT_CM
-            and data[side_index] > PARKING_IN_OPEN_SIDE_CM
-        )
 
-    def begin_parking_in(self, staging_ready=False):
-        self.parking_entry_search_active = False
-        self.parking_block_search_active = False
-        self.parking_staging_confirmation = 0
-        self.corner_armed = False
-        self.transition("PARKING_IN_ENTER", "parking block confirmed; begin camera-guided entry")
 
-    def parking_entry_front_confirmed(self, data, new_sample):
-        """Count consecutive fresh front readings while aligned after the final corner."""
-        if not new_sample:
-            return False
-        aligned = abs(angle_diff(self.parking_entry_heading, data[0])) <= PARKING_ENTRY_HEADING_TOLERANCE
-        center_valid = bool(last_telemetry_status["valid_mask"] & VALID_CENTER) and _distance_is_valid(data[2])
-        self.parking_entry_front_samples = (
-            self.parking_entry_front_samples + 1
-            if aligned and center_valid and data[2] <= PARKING_ENTRY_FRONT_TRIGGER_CM
-            else 0
-        )
-        return self.parking_entry_front_samples >= PARKING_ENTRY_FRONT_SAMPLES
 
-    def start_parking_block_search(self, reason):
-        self.parking_block_search_active = True
-        self.parking_entry_front_samples = 0
-        offset = (
-            -PARKING_BLOCK_SEARCH_HEADING_OFFSET if DIRECTION == "clockwise"
-            else PARKING_BLOCK_SEARCH_HEADING_OFFSET
-        )
-        self.parking_block_search_heading = normalize_angle(self.parking_entry_heading + offset)
-        self.detector.release_active()
-        self.detector.parking_block = None
-        self.detector.parking_block_history.clear()
-        self.brake()
-        self.transition("PARKING_BLOCK_SEARCH", reason)
-        print(f"[PARKING SEARCH] turn toward {self.parking_block_search_heading:.1f} deg to find block")
 
-    def parking_resume_state(self):
-        return "PARKING_BLOCK_SEARCH" if self.parking_block_search_active else "PARKING_ENTRY_SEARCH"
 
-    def update_parking_entry_launch(self, data, detection, new_sample):
-        # Retain the old state as a safe route into the pillar phase during recovery.
-        self.transition("PARKING_ENTRY_SEARCH", "begin final-straight pillar phase")
-        self.update_parking_entry_search(data, detection, new_sample)
 
-    def update_parking_entry_search(self, data, detection, new_sample):
-        if last_telemetry_status["hard_stop"] or data[2] <= PYTHON_EMERGENCY_RELEASE_CM:
-            self.parking_entry_front_samples = 0
-            self.start_hard_stop_recovery(data, "PARKING_ENTRY_SEARCH", "release while searching for parking")
-            return
-        if self.parking_entry_front_confirmed(data, new_sample):
-            self.start_parking_block_search("three aligned front readings at or below 150 cm")
-            return
 
-        aligned = abs(angle_diff(self.parking_entry_heading, data[0])) <= PARKING_ENTRY_HEADING_TOLERANCE
-        actionable_detection = (
-            aligned and not self.parking_entry_pillar_passed
-            and detection is not None and detection.seen_this_frame
-            and not detection.blocked_by_corner
-        )
-        if actionable_detection and self.enter_acquire(detection):
-            return
-        if aligned and self.detector.actionable_pillar_visible and not self.parking_entry_pillar_passed:
-            self.brake()
-            return
-        self.command_robot(
-            PARKING_SPEED, 0,
-            self.heading_correction(data[0], target=self.parking_entry_heading),
-        )
 
-    def update_parking_block_search(self, data):
-        if last_telemetry_status["hard_stop"] or data[2] <= PYTHON_EMERGENCY_RELEASE_CM:
-            self.start_hard_stop_recovery(data, "PARKING_BLOCK_SEARCH", "front interlock before parking entry")
-            return
-        block = self.detector.parking_block
-        block_confirmed = (
-            block is not None
-            and block.confirmed
-            and block.seen_this_frame
-            and time.monotonic() - self.last_detection_capture_at <= CAMERA_STALE_SECONDS
-        )
-        if block_confirmed:
-            self.record_run_event(
-                "parking_block_confirmed",
-                f"bbox={block.bbox} L={data[1]} C={data[2]} R={data[3]}",
-            )
-            print(f"[PARKING IN] BLOCK CONFIRMED: bbox={block.bbox}; entering")
-            self.begin_parking_in()
-            return
-        left, right = data[1], data[3]
-        if _distance_is_valid(left) and left <= PARKING_BLOCK_SIDE_MIN_CM:
-            self.command_robot(PARKING_BLOCK_CANDIDATE_SPEED, 0, PARKING_BLOCK_SEARCH_STEER)
-            return
-        if _distance_is_valid(right) and right <= PARKING_BLOCK_SIDE_MIN_CM:
-            self.command_robot(PARKING_BLOCK_CANDIDATE_SPEED, 0, -PARKING_BLOCK_SEARCH_STEER)
-            return
-        if block is not None and block.seen_this_frame:
-            # Follow an uncertain candidate slowly while fresh frames confirm it.
-            error = block.center_x_norm - 0.5
-            steering = max(-PARKING_BLOCK_ALIGN_STEER, min(PARKING_BLOCK_ALIGN_STEER,
-                           error * PARKING_BLOCK_ALIGN_KP))
-            self.command_robot(PARKING_BLOCK_CANDIDATE_SPEED, 0, steering)
-            return
-        heading_error = angle_diff(self.parking_block_search_heading, data[0])
-        if abs(heading_error) > PARKING_BLOCK_SEARCH_HEADING_TOLERANCE:
-            steering = -PARKING_BLOCK_SEARCH_STEER if heading_error < 0 else PARKING_BLOCK_SEARCH_STEER
-            speed = PARKING_BLOCK_SEARCH_TURN_SPEED
-        else:
-            steering = self.heading_correction(data[0], target=self.parking_block_search_heading)
-            speed = PARKING_SPEED
-        self.command_robot(
-            speed,
-            0,
-            steering,
-        )
 
-    def complete_parking_in(self):
-        self.command_robot(0, 0, 0, force=True)
-        self.suspend_detection_for_parking_in()
-        self.transition("COMPLETE", "parking manoeuvre complete")
-        print("[PARKING IN] COMPLETE; electrical brake applied")
 
-    def update_parking_in(self, data):
-        state = self.state
-        elapsed = time.monotonic() - self.state_started
-        if state == "PARKING_IN_ENTER":
-            if data[2] <= PARKING_IN_FINAL_FRONT_CM:
-                self.complete_parking_in()
-                return
-            block = self.detector.parking_block
-            fresh_block = (
-                block is not None and block.confirmed and block.seen_this_frame
-                and time.monotonic() - self.last_detection_capture_at <= CAMERA_STALE_SECONDS
-            )
-            desired_x = (
-                PARKING_BLOCK_ALIGN_TARGET_X if DIRECTION == "clockwise"
-                else 1.0 - PARKING_BLOCK_ALIGN_TARGET_X
-            )
-            left, right = data[1], data[3]
-            if _distance_is_valid(left) and left <= PARKING_BLOCK_SIDE_MIN_CM:
-                steering = PARKING_BLOCK_ALIGN_STEER
-            elif _distance_is_valid(right) and right <= PARKING_BLOCK_SIDE_MIN_CM:
-                steering = -PARKING_BLOCK_ALIGN_STEER
-            elif fresh_block:
-                steering = max(
-                    -PARKING_BLOCK_ENTRY_STEER,
-                    min(PARKING_BLOCK_ENTRY_STEER,
-                        (block.center_x_norm - desired_x) * PARKING_BLOCK_ENTRY_KP),
-                )
-            else:
-                # The block can leave the camera close to entry; continue straight.
-                steering = 0
-            self.command_robot(PARKING_BLOCK_ENTRY_SPEED, 0, steering)
-            return
-        if state == "PARKING_IN_FORWARD_APPROACH":
-            center = data[2]
-            side_name = "right" if DIRECTION == "clockwise" else "left"
-            side = data[3] if DIRECTION == "clockwise" else data[1]
-            if not _distance_is_valid(center) or not _distance_is_valid(side):
-                self.brake()
-                return
-            if last_telemetry_status["hard_stop"] or center <= PYTHON_EMERGENCY_RELEASE_CM:
-                self.brake()
-                self.transition("FAULT", "front interlock before parking staging point")
-                return
-            if self.parking_staging_ready(data):
-                self.brake()
-                self.transition(
-                    "PARKING_IN_STOP_HOLD",
-                    f"staging point reached: C={center} {side_name}={side}",
-                )
-                return
-            self.command_robot(
-                PARKING_SPEED,
-                0,
-                self.heading_correction(data[0], target=self.parking_reference_heading),
-            )
-        elif state == "PARKING_IN_STOP_HOLD":
-            self.brake()
-            if elapsed >= PARKING_IN_STOP_SECONDS:
-                self.transition("PARKING_IN_REVERSE_LEFT", "0.2 s stop complete")
-        elif state == "PARKING_IN_REVERSE_LEFT":
-            if elapsed >= PARKING_IN_REVERSE_LEFT_SECONDS:
-                self.transition("PARKING_IN_REVERSE_RIGHT", "3.0 s full-left reverse complete")
-                self.command_robot(PARKING_SPEED, 1, PARKING_IN_FULL_STEER)
-                return
-            self.command_robot(PARKING_SPEED, 1, -PARKING_IN_FULL_STEER)
-        elif state == "PARKING_IN_REVERSE_RIGHT":
-            if elapsed >= PARKING_IN_REVERSE_RIGHT_SECONDS:
-                self.complete_parking_in()
-                return
-            self.command_robot(PARKING_SPEED, 1, PARKING_IN_FULL_STEER)
 
     def start_hard_stop_recovery(self, data, resume_state, reason):
         commitment = self.pillar_pass_commitment
@@ -4554,6 +3563,36 @@ class ObstacleChallengeController(NavigationOnlyController):
             self.transition("APPROACH_CORNER", "30 cm clearance and corner opening confirmed")
             return
 
+        # Camera fallback is deliberately recovery-only. Normal TF-Luna corner
+        # proof above always gets the first chance. A confirmed broad black end
+        # wall plus the expected-side opening can recover a corner when heading
+        # error or a temporary side-sensor miss prevented that normal proof.
+        if (
+            self.last_detection_capture_at > self.state_started
+            and self.detector.black_corner_confirmed
+        ):
+            self.corner_armed = True
+            self.corner_zone_locked = True
+            self.corner_reapproach_from_recovery = True
+            self.reset_corner_evidence()
+            self.reset_corner_recovery_evidence()
+            detail = (
+                f"side={self.detector.black_corner_expected_side} "
+                f"centerCoverage={self.detector.black_corner_coverage:.2f} "
+                f"sideCoverage={self.detector.black_corner_side_coverage:.2f} "
+                f"C={center} headingError={angle_diff(target_angle, data[0]):+.1f}"
+            )
+            self.record_run_event("black_camera_corner_confirmed", detail)
+            print(f"[BLACK CORNER] CONFIRMED during reassessment: {detail}")
+            if last_telemetry_status["hard_stop"] or center < HARD_STOP_RELEASE_CM:
+                self.start_corner_clearance_recovery(data)
+            else:
+                self.transition(
+                    "APPROACH_CORNER",
+                    "black-wall geometry confirmed after TF-Luna corner proof failed",
+                )
+            return
+
         # Wait for the next fresh camera assessment; the update gate checks
         # camera/telemetry freshness before this method is called.
         if not last_telemetry_status["hard_stop"] and self.last_detection_capture_at > self.state_started:
@@ -4592,12 +3631,7 @@ class ObstacleChallengeController(NavigationOnlyController):
             if data[2] >= HARD_STOP_RELEASE_CM:
                 self.deep_recovery_target_heading = None
                 self.deep_recovery_attempts = 0
-                next_state = (
-                    self.parking_resume_state()
-                    if self.parking_entry_search_active
-                    else "FOLLOW_STRAIGHT"
-                )
-                self.transition(next_state, "post-release front clearance restored")
+                self.transition("FOLLOW_STRAIGHT", "post-release front clearance restored")
                 return
         if time.monotonic() - self.state_started >= POST_RELEASE_RECHECK_SECONDS:
             if last_telemetry_status["hard_stop"] or center <= 10:
@@ -4611,15 +3645,10 @@ class ObstacleChallengeController(NavigationOnlyController):
                     f"reassessment center={center}cm; continue bounded reverse release",
                 )
                 return
-            next_state = (
-                self.parking_resume_state()
-                if self.parking_entry_search_active
-                else "FOLLOW_STRAIGHT"
-            )
             self.deep_recovery_target_heading = None
             self.deep_recovery_attempts = 0
             self.resume_camera_after_recovery()
-            self.transition(next_state, "reassessment clear; resume navigation")
+            self.transition("FOLLOW_STRAIGHT", "reassessment clear; resume navigation")
 
     def start_deep_recovery(self, data, reason):
         """Back away on the pre-corner heading instead of entering FAULT."""
@@ -4656,7 +3685,7 @@ class ObstacleChallengeController(NavigationOnlyController):
         self.pending_target = None
         self.turn_mode = None
         self.turn_attempts = 0
-        self.corner_armed = not self.parking_entry_search_active
+        self.corner_armed = True
         self.corner_confirmation = 0
         self.corner_approach_from_lines = False
         self.navigation_release_count = 0
@@ -5017,6 +4046,17 @@ class ObstacleChallengeController(NavigationOnlyController):
             return False
 
         self.corner_zone_locked = True
+        if 0 < self.pillar_slots_filled < MAX_PILLARS_PER_STRAIGHT:
+            self.corner_next_after_pillars = True
+            self.record_run_event(
+                "one_slot_corner_fallback",
+                f"confirmed end-wall geometry with {self.pillar_slots_filled}/"
+                f"{MAX_PILLARS_PER_STRAIGHT} slots",
+            )
+            print(
+                f"[ROUND2] ONE-SLOT CORNER FALLBACK: confirmed wall geometry; "
+                f"accepting {self.pillar_slots_filled}/{MAX_PILLARS_PER_STRAIGHT}"
+            )
         self.corner_after_pillar_pending = False
         self.corner_approach_from_lines = False
         self.vision_corner_armed = False
@@ -5117,11 +4157,6 @@ class ObstacleChallengeController(NavigationOnlyController):
             "APPROACH_CORNER",
             "REASSESS_FRONT",
             "PARKING_EXIT_DIRECTION",
-            "PARKING_ENTRY_LAUNCH",
-            "PARKING_ENTRY_SEARCH",
-            "PARKING_BLOCK_SEARCH",
-            "PARKING_IN_ENTER",
-            "PARKING_IN_FORWARD_APPROACH",
             "CORNER_CLEARANCE_RECOVERY",
         ):
             required |= VALID_LEFT | VALID_RIGHT
@@ -5212,6 +4247,12 @@ class ObstacleChallengeController(NavigationOnlyController):
         # During an active pass, heading hold must never reverse the required
         # avoidance direction, even when the block is already on the safe side.
         steering = max(0.0, steering) if detection.color == "red" else min(0.0, steering)
+        if detection.color == "green" and detection.seen_this_frame:
+            # Do not straighten as soon as green crosses its image target. Keep
+            # a modest pass-side command until physical/camera clearance begins.
+            # The heading hard limit below and the TF-Luna wall guard remain
+            # authoritative safety constraints.
+            steering = min(-PILLAR_GREEN_VISIBLE_HOLD_STEER, steering)
         # Keep the pass moving, but do not let one visible pillar turn the
         # chassis away from its lane heading for several seconds.
         excursion = abs(angle_diff(target_angle, heading))
@@ -5259,6 +4300,20 @@ class ObstacleChallengeController(NavigationOnlyController):
         return speed, steering
 
     def enter_acquire(self, detection):
+        if self.post_turn_asymmetric_view_active and detection is not None:
+            x, _, width, _ = detection.bbox
+            center_x = x + width * 0.5
+            left_fraction, right_fraction = self.post_turn_view_fractions(
+                time.monotonic()
+            )
+            left_limit = CAMERA_WIDTH * left_fraction
+            right_limit = CAMERA_WIDTH * (1.0 - right_fraction)
+            if center_x < left_limit or center_x > right_limit:
+                print(
+                    f"[ROUND2] TRAILING PILLAR REJECTED: "
+                    f"track={detection.track_id} centerX={center_x:.0f}"
+                )
+                return False
         if (
             detection is None
             or self.corner_zone_locked
@@ -5279,19 +4334,22 @@ class ObstacleChallengeController(NavigationOnlyController):
         self.filtered_pillar_correction = 0.0
         self.last_pillar_steering = 0.0
         self.last_pillar_speed = PILLAR_MIN_PASS_SPEED
+
         self.transition(
             "ACQUIRE_PILLAR",
             f"track={detection.track_id} color={detection.color} confidence={detection.confidence:.2f}",
         )
+        if self.post_turn_asymmetric_view_active:
+            self.release_post_turn_view(
+                f"new-straight pillar acquired; track={detection.track_id}",
+                reset_detector=False,
+            )
         return True
 
     def pillar_limit_reached(self):
         return (
-            not self.parking_entry_search_active
-            and (
-                (self.parking_exit_first_pillar_counted and COUNTER == 0)
-                or self.pillar_slots_filled >= MAX_PILLARS_PER_STRAIGHT
-            )
+            (self.parking_exit_first_pillar_counted and COUNTER == 0)
+            or self.pillar_slots_filled >= MAX_PILLARS_PER_STRAIGHT
         )
 
     def candidate_proves_foreground(self, detection):
@@ -5575,8 +4633,7 @@ class ObstacleChallengeController(NavigationOnlyController):
             self.command_robot(min(SPEED, acquire_speed), 0, self.heading_correction(heading))
             if elapsed >= PILLAR_ACQUIRE_TIMEOUT_SECONDS:
                 self.detector.release_active()
-                next_state = self.parking_resume_state() if self.parking_entry_search_active else "FOLLOW_STRAIGHT"
-                self.transition(next_state, "candidate did not confirm")
+                self.transition("FOLLOW_STRAIGHT", "candidate did not confirm")
             return
 
         if detection.confirmed:
@@ -5616,8 +4673,7 @@ class ObstacleChallengeController(NavigationOnlyController):
 
         if elapsed >= PILLAR_ACQUIRE_TIMEOUT_SECONDS:
             self.detector.release_active()
-            next_state = self.parking_resume_state() if self.parking_entry_search_active else "FOLLOW_STRAIGHT"
-            self.transition(next_state, "three-of-five confirmation timeout")
+            self.transition("FOLLOW_STRAIGHT", "three-of-five confirmation timeout")
 
     def update_pass_pillar(self, data, detection):
         heading, _, center, _, _ = data
@@ -5661,7 +4717,20 @@ class ObstacleChallengeController(NavigationOnlyController):
        
        
         if elapsed < PILLAR_CLEARANCE_HOLD_SECONDS:
-            self.command_robot(self.last_pillar_speed, 0, self.last_pillar_steering)
+            clearance_steering = self.last_pillar_steering
+            if self.locked_pillar_color == "red":
+                remaining = max(
+                    0.0,
+                    1.0 - elapsed / PILLAR_CLEARANCE_HOLD_SECONDS,
+                )
+                clearance_steering = (
+                    min(PILLAR_RED_CLEARANCE_MAX_STEER,
+                        max(0.0, self.last_pillar_steering))
+                    * remaining
+                )
+            self.command_robot(
+                self.last_pillar_speed, 0, clearance_steering
+            )
             return
 
         if elapsed >= PILLAR_CLEARANCE_HOLD_SECONDS:
@@ -5677,10 +4746,6 @@ class ObstacleChallengeController(NavigationOnlyController):
             self.navigation_release_count = 0
             self.deep_recovery_attempts = 0
             self.clear_pillar_pass_commitment("physical clearance movement complete")
-            if self.parking_entry_search_active:
-                self.parking_entry_pillar_passed = True
-                self.start_parking_block_search(f"one {color} pillar passed; begin parking block search")
-                return
             if self.pillar_limit_reached():
                 self.corner_next_after_pillars = True
                 # The 130 cm re-arm window can occur while a pillar owns
@@ -5691,12 +4756,12 @@ class ObstacleChallengeController(NavigationOnlyController):
                 self.corner_confirmation = 0
                 self.reset_corner_zone_lock(armed=True)
                 self.record_run_event(
-                    "corner_next_after_slot_two",
-                    "slot 2 pillar passed; TF-Luna corner proof required",
+                    "corner_next_after_pillar_limit",
+                    "pillar limit reached; TF-Luna corner proof required",
                 )
-                print("[ROUND2] CORNER NEXT: slot 2 pillar passed; waiting for TF-Luna confirmation")
+                print("[ROUND2] CORNER NEXT: both slots filled; waiting for TF-Luna confirmation")
                
-            next_state = self.parking_resume_state() if self.parking_entry_search_active else "FOLLOW_STRAIGHT"
+            next_state = "FOLLOW_STRAIGHT"
             self.pillar_recenter_next_state = next_state
             self.pillar_recenter_centered_samples = 0
             self.transition("PILLAR_RECENTER", f"pillar {color} cleared; recenter before {next_state}")
@@ -5894,6 +4959,7 @@ class ObstacleChallengeController(NavigationOnlyController):
             self.parking_exit_first_pillar_counted = False
         self.committed_pillar_tracks_this_straight.clear()
         self.pillar_slots_filled = 0
+        self.first_pillar_slot_filled_at = None
         self.last_completed_corner_at = time.monotonic()
         self.corner_next_after_pillars = False
         self.corner_next_ignored_tracks.clear()
@@ -5913,22 +4979,10 @@ class ObstacleChallengeController(NavigationOnlyController):
         print(f"[NAV] CORNER {COUNTER}/{COUNTER_MAX} COMPLETE; target={target_angle:.1f}")
         if COUNTER >= COUNTER_MAX:
             if ENABLE_PARKING_IN:
-                self.parking_entry_search_active = True
-                self.parking_block_search_active = False
-                self.parking_entry_heading = target_angle
-                self.parking_entry_front_samples = 0
-                self.parking_entry_pillar_passed = False
-                self.corner_armed = False
-                self.vision_corner_armed = False
-                self.alpha_corner_locked = False
-                self.alpha_corner_reference_y = None
-                self.corner_after_pillar_pending = False
-                self.reset_corner_zone_lock(armed=False)
-                self.reset_deferred_corner_track()
-                self.resume_block_detection()
+                self.command_robot(0, 0, 0, force=True)
                 self.transition(
-                    "PARKING_ENTRY_SEARCH",
-                    "final corner complete; allow at most one pillar before parking search",
+                    "PARKING_PARALLEL_HANDOFF",
+                    "final corner complete; start parallel parking controller",
                 )
             else:
                 self.transition("COMPLETE", "three laps / 12 corners complete")
@@ -5937,6 +4991,7 @@ class ObstacleChallengeController(NavigationOnlyController):
             self.transition("POST_TURN_BACKUP", "backing up to maximize camera view")
             self.post_turn_block_priority_until = time.monotonic() + POST_TURN_TAPE_IGNORE_GRACE_SECONDS
             self.resume_block_detection()
+            self.activate_post_turn_view()
 
     def update_turn_90(self, data, new_sample):
         heading, _, center, _, _ = data
@@ -6103,11 +5158,7 @@ class ObstacleChallengeController(NavigationOnlyController):
                 elapsed >= ROUND2_RECENTER_MIN_SECONDS
                 and self.recenter_centered_samples >= ROUND2_RECENTER_CONFIRMATION_SAMPLES)
         ):
-            next_state = (
-                self.parking_resume_state()
-                if self.parking_entry_search_active
-                else self.recenter_next_state
-            )
+            next_state = self.recenter_next_state
             self.finish_post_turn_context(prepare_next_corner=(next_state == "FOLLOW_STRAIGHT"))
             self.transition(next_state)
 
@@ -6209,6 +5260,7 @@ class ObstacleChallengeController(NavigationOnlyController):
     def update(self, data, detection, camera_fresh):
         new_sample = self.is_new_sample()
         self.current_round2_sensor_data = data
+        self.enforce_second_slot_timeout()
         # A committed pass keeps its camera track through clearance. Outside a
         # pass, suppress repeats and all new pillars after the second pass.
         if (
@@ -6282,8 +5334,6 @@ class ObstacleChallengeController(NavigationOnlyController):
             if self.state == "APPROACH_CORNER":
                 # Missing data breaks the consecutive corner-confirmation run.
                 self.corner_confirmation = 0
-            if self.state in ("PARKING_ENTRY_LAUNCH", "PARKING_ENTRY_SEARCH"):
-                self.parking_entry_front_samples = 0
             mask = last_telemetry_status["valid_mask"]
             self.brake()
             if not self.sensor_hold:
@@ -6310,22 +5360,6 @@ class ObstacleChallengeController(NavigationOnlyController):
 
         if self.state.startswith("PARKING_EXIT_"):
             self.update_parking_exit(data, detection, new_sample)
-            return
-
-        if self.state == "PARKING_ENTRY_LAUNCH":
-            self.update_parking_entry_launch(data, detection, new_sample)
-            return
-
-        if self.state == "PARKING_ENTRY_SEARCH":
-            self.update_parking_entry_search(data, detection, new_sample)
-            return
-
-        if self.state == "PARKING_BLOCK_SEARCH":
-            self.update_parking_block_search(data)
-            return
-
-        if self.state.startswith("PARKING_IN_"):
-            self.update_parking_in(data)
             return
 
         if self.state == "REASSESS_FRONT":
@@ -6384,9 +5418,22 @@ class ObstacleChallengeController(NavigationOnlyController):
             return
 
         if self.state == "FOLLOW_STRAIGHT":
+            one_slot_corner_geometry = (
+                self.pillar_slots_filled == 1
+                and new_sample
+                and self.corner_sensors_agree(data, CORNER_ZONE_LOCK_CM)
+                and data[2] > PYTHON_EMERGENCY_RELEASE_CM
+            )
+            if one_slot_corner_geometry:
+                # Do not let a colour track at the end wall steal ownership
+                # from the existing three-fresh-sample corner proof.
+                detection = None
+
             # A lower/near pillar always wins, including a genuine second pillar
             # of the same colour. Background deferral is track-specific.
             if (
+                not one_slot_corner_geometry
+                and
                 self.candidate_proves_foreground(detection)
                 and not self.pillar_limit_reached()
             ):
@@ -6487,8 +5534,8 @@ def round2_obstacle_main():
     while True:
         telemetry = read_data()
         ret, frame, camera_sequence, captured_at = cap.read_with_metadata()
-        side_fraction = camera_view_side_fraction(
-            COUNTER, time.monotonic(), controller.narrow_camera_view_until
+        left_fraction, right_fraction = controller.post_turn_view_fractions(
+            time.monotonic()
         )
         camera_fresh = (
             ret
@@ -6504,14 +5551,18 @@ def round2_obstacle_main():
                 # from being reused after normal detection resumes.
                 last_camera_sequence = camera_sequence
             elif camera_sequence != last_camera_sequence:
-                parking_vision = controller.state in (
-                    "PARKING_BLOCK_SEARCH", "PARKING_IN_ENTER"
+                black_corner_search = controller.state == "REASSESS_FRONT"
+                detector_frame = (
+                    frame
+                    if black_corner_search
+                    else asymmetric_camera_view(frame, left_fraction, right_fraction)
                 )
-                detector_frame = central_camera_view(frame, side_fraction) if side_fraction else frame
                 detection = detector.update(
-                    detector_frame, parking_search=parking_vision,
-                    parking_side=("left" if DIRECTION == "clockwise" else "right")
-                    if parking_vision else None,
+                    detector_frame,
+                    black_corner_search=black_corner_search,
+                    black_corner_side=(
+                        "right" if DIRECTION == "clockwise" else "left"
+                    ) if black_corner_search else None,
                 )
                 controller.last_detection_capture_at = captured_at
                 last_camera_sequence = camera_sequence
@@ -6520,7 +5571,26 @@ def round2_obstacle_main():
         if run_logger is not None:
             run_logger.log_sample(controller, telemetry, detection, camera_fresh)
 
-        if display_frame is not None:
+        if controller.state == "PARKING_PARALLEL_HANDOFF":
+            controller.brake()
+            if run_logger is not None:
+                run_logger.close()
+                active_run_csv_logger = None
+            # main.py runs as __main__; give the standalone parking module the
+            # same initialized camera, serial port, telemetry, and safety API.
+            import sys
+            sys.modules["main"] = sys.modules[__name__]
+            if PARTIAL_PARKING == PARALLEL_PARKING:
+                raise ValueError("Select exactly one parking mode: PARTIAL_PARKING or PARALLEL_PARKING")
+            if PARTIAL_PARKING:
+                import partial_parking
+                partial_parking.partial_parking_main(DIRECTION)
+            else:
+                import parallel_parking
+                parallel_parking.parallel_parking_main(DIRECTION, "auto")
+            return
+
+        if SHOW_LIVE_UI and display_frame is not None:
             annotated = detector.annotate(
                 display_frame,
                 controller.state,
@@ -6530,22 +5600,27 @@ def round2_obstacle_main():
                 pillar_count=controller.pillar_slots_filled,
                 corner_next=controller.corner_next_after_pillars,
                 second_slot_grace=(
-                    None if controller.last_completed_corner_at is None
-                    else max(0.0, POST_TURN_SECOND_SLOT_GRACE_SECONDS
-                             - (time.monotonic() - controller.last_completed_corner_at))
+                    None if controller.first_pillar_slot_filled_at is None
+                    else max(0.0, SECOND_PILLAR_SLOT_TIMEOUT_SECONDS
+                             - (time.monotonic() - controller.first_pillar_slot_filled_at))
                 ),
             )
-            display_fraction = camera_view_side_fraction(
-                COUNTER, time.monotonic(), controller.narrow_camera_view_until
+            display_left, display_right = controller.post_turn_view_fractions(
+                time.monotonic()
             )
-            if display_fraction:
-                margin = int(round(annotated.shape[1] * display_fraction))
-                cv2.line(annotated, (margin, 0), (margin, annotated.shape[0]), (255, 255, 0), 2)
-                cv2.line(annotated, (annotated.shape[1] - margin, 0),
-                         (annotated.shape[1] - margin, annotated.shape[0]), (255, 255, 0), 2)
-                visible_percent = int(round(100 * (1 - 2 * display_fraction)))
-                cv2.putText(annotated, f"CENTRAL {visible_percent}% VIEW", (margin + 10, annotated.shape[0] - 20),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+            if display_left or display_right:
+                left_margin = int(round(annotated.shape[1] * display_left))
+                right_x = int(round(annotated.shape[1] * (1.0 - display_right)))
+                cv2.line(annotated, (left_margin, 0),
+                         (left_margin, annotated.shape[0]), (255, 255, 0), 2)
+                cv2.line(annotated, (right_x, 0),
+                         (right_x, annotated.shape[0]), (255, 255, 0), 2)
+                cv2.putText(
+                    annotated,
+                    f"VIEW MASK L={display_left * 100:.0f}% R={display_right * 100:.0f}%",
+                    (left_margin + 10, annotated.shape[0] - 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2,
+                )
             publish_detection_view(annotated)
 
         if controller.state == "COMPLETE" and ENABLE_PARKING_IN:
@@ -6555,64 +5630,8 @@ def round2_obstacle_main():
         time.sleep(NAVIGATION_LOOP_SECONDS)
 
 
-def navigation_only_main():
-    """Run three laps without invoking colour or parking behaviour."""
-    controller = NavigationOnlyController()
-    print(
-        "[NAV] Navigation-only mode: colour detection OFF, "
-        "parking exit OFF, parking in OFF"
-    )
-
-    while True:
-        telemetry = read_data()
-        controller.update(telemetry)
-
-        if controller.state == "COMPLETE" and ENABLE_PARKING_IN:
-            controller.brake()
-            return
-
-        time.sleep(NAVIGATION_LOOP_SECONDS)
 
 
-def parking(DEBUG = False):
-    global DIRECTION
-    send_data(0, 0, 0)
-    if DIRECTION == "anticlockwise":
-        data = wait_until_and_read_data()
-        angle, left, front, right, ir = data
-        if front < 25:
-            send_data(75, 1, 0)
-            time.sleep(1.5)
-            send_data(0, 0, 0)
-        elif front > 70:
-            send_data(75, 0, 0)
-            time.sleep(1)
-            send_data(0, 0, 0)
-        send_data(0, 0, 0)
-        print("SET POSITION; STARTING TURN IN 1S")
-        time.sleep(1)
-        data = wait_until_and_read_data()
-        data = wait_until_and_read_data()
-        data = wait_until_and_read_data()
-        angle, left, front, right, ir = data
-        send_data(50, 1, 0)
-        while left > 80 or (front and front < 80):
-            data = read_data()
-            if data:
-                angle, left, front, right, ir = data
-                send_data(50, 1, angle)
-                print(data)
-            flush_serial()
-        send_data(0, 0, 0)
-        steer_until_angle(0, -80, 75, 1, 55)
-        send_data(60, 1, 0)
-        time.sleep(3)
-        send_data(0, 0, 0)
-    elif DIRECTION == "clockwise":
-        steer_until_angle(0, -90, 80, 0, -30)
-        send_data(80, 0, 0)
-        time.sleep(2)
-        send_data(0, 0, 0)
 
 def waitForOk():
     while True:
@@ -6623,13 +5642,16 @@ def waitForOk():
                 print("Sending back OK...")
                 ser.write(b"OK\n")
                 break
+            if line.startswith("T,") and _parse_telemetry_line(line) is not None:
+                print("ESP32 telemetry already streaming; continuing")
+                break
 
 if __name__ == "__main__":
     # MAIN
     try:
         print("Initialized")
-        start_live_ui()
         led.on()
+        start_live_ui()
         waitForOk()
         print("STARTING")
         flush_serial()
@@ -6651,7 +5673,7 @@ if __name__ == "__main__":
             print(f"[STOP] Could not send final brake command: {brake_error}")
         try:
             cap.release()
-        finally:
+        finally: 
             cv2.destroyAllWindows()
             led.off()
             ser.close()
