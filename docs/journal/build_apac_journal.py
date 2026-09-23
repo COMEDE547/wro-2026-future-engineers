@@ -71,6 +71,7 @@ veh = rewrite_links((ROOT / 'docs/apac_2026_vehicle.md').read_text(encoding='utf
 sw = rewrite_links((ROOT / 'docs/apac_2026_software.md').read_text(encoding='utf-8'), 'docs')
 src = rewrite_links((ROOT / 'src/apac-2026/README.md').read_text(encoding='utf-8'), 'src/apac-2026')
 vhead, vsec = sections(veh); shead, ssec = sections(sw); rhead, rsec = sections(src)
+tl = rewrite_links((ROOT / 'docs/apac_2026_test_logs.md').read_text(encoding='utf-8'), 'docs'); thead, tsec = sections(tl)
 print('vehicle sections:', [t for t, _ in vsec]); print('software sections:', [t for t, _ in ssec]); print('src sections:', [t for t, _ in rsec])
 
 def num(t):
@@ -141,7 +142,7 @@ snapshot = """<section>%s<h2><span class="n">01</span>Snapshot</h2><p class="led
 <tr><td>Compute</td><td>Raspberry Pi 5 (camera, detection, decisions) and ESP32 (drive motor, servo, three TF-Luna, LEDs), linked by USB serial.</td></tr>
 <tr><td>Software</td><td><code>main.py</code> (the coach's working copy, 23 September): Lab-colour pillar detection with tape-line and black-wall corner cues, a state machine that recentres between the walls after every pillar and corner and steers off a side wall during pillar passes, two pillars per straight, and a hand-over to a parking module after the twelfth corner (<code>partial_parking.py</code> as committed; <code>parallel_parking.py</code> is one switch away).</td></tr>
 <tr><td>Open Challenge</td><td><code>open-challenge.ino</code> on the ESP32 alone: direction detection, wall following at 30 cm with heading hold, twelve 90&deg; turns on the BNO055 heading, and a stop 150 cm from the wall ahead (&sect;04).</td></tr>
-<tr><td>Evidence</td><td>Bench measurements of drive, power and camera geometry (&sect;02, &sect;03); detection shown on the mat (&sect;04); code stored byte-for-byte with MD5 checksums (&sect;06).</td></tr>
+<tr><td>Evidence</td><td>The car's own logs: 27 runs from the parking lot reached the twelfth corner, the fastest in 154 s; <code>parallel_parking.py</code> parked in 15 of 32 attempts (&sect;07). Bench measurements of drive, power and camera geometry (&sect;02, &sect;03); detection shown on the mat (&sect;04); code stored byte-for-byte with MD5 checksums (&sect;06).</td></tr>
 </table>
 <h3>Contents</h3>
 <table><tr><th>&sect;</th><th>Section</th><th>Appendix C</th></tr>
@@ -150,7 +151,8 @@ snapshot = """<section>%s<h2><span class="n">01</span>Snapshot</h2><p class="led
 <tr><td>03</td><td>Power and sensing: LEDs, measured power budget, failure points, ESP32 pins</td><td>C2</td></tr>
 <tr><td>04</td><td>Software and obstacle strategy: control loop, states, recovery, detection, parking, validation</td><td>C3</td></tr>
 <tr><td>05</td><td>Engineering decisions: every change with its reason, evidence and cost</td><td>C4</td></tr>
-<tr><td>06</td><td>Reproducibility: files, serial link, settings, provenance and checksums</td><td>C5</td></tr></table>
+<tr><td>06</td><td>Reproducibility: files, serial link, settings, provenance and checksums</td><td>C5</td></tr>
+<tr><td>07</td><td>Validation: the car's run logs, 15-22 September</td><td>C3, C4</td></tr></table>
 </section>""" % BAND
 
 def chapter(n, title, lede, body):
@@ -162,9 +164,11 @@ ch4 = chapter('04', 'Software and obstacle strategy', 'How main.py drives the Ob
 ch5 = chapter('05', 'Engineering decisions', 'Each change as a decision: what it replaced, why, the evidence, and the cost (criterion 4).', ''.join(sub(t, b) for t, b in dec))
 ch6 = chapter('06', 'Reproducibility', 'How to rebuild and run the software exactly as committed (criterion 5).', render(rhead) + ''.join(sub(t, b) for t, b in rsec))
 
+ch7 = chapter('07', 'Validation', "What the car's own logs show, 15 to 22 September (criteria 3 and 4).", render(thead) + ''.join(sub(tt, b) for tt, b in tsec))
+
 doc = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>TED Drive - WRO FE 2026 Engineering Journal (APAC edition)</title>
 <style>%s</style>
-</head><body>%s%s%s%s%s%s%s</body></html>""" % (CSS, cover, snapshot, ch2, ch3, ch4, ch5, ch6)
+</head><body>%s%s%s%s%s%s%s%s</body></html>""" % (CSS, cover, snapshot, ch2, ch3, ch4, ch5, ch6, ch7)
 page = WORK / 'journal_apac.html'; page.write_text(doc, encoding='utf-8')
 part1 = WORK / 'journal_apac_part1.pdf'
 if part1.exists(): part1.unlink()
@@ -189,7 +193,7 @@ def first(pat):
     raise SystemExit('bookmark target not found: ' + pat)
 toc = [[1, 'Cover', 1], [2, '01 Snapshot', first('The APAC vehicle in one page')], [2, '02 Mobility', first('How the car is built and moves')],
        [2, '03 Power and sensing', first('What powers the car')], [2, '04 Software and obstacle strategy', first('How main.py drives the Obstacle')],
-       [2, '05 Engineering decisions', first('Each change as a decision')], [2, '06 Reproducibility', first('How to rebuild and run')]]
+       [2, '05 Engineering decisions', first('Each change as a decision')], [2, '06 Reproducibility', first('How to rebuild and run')], [2, '07 Validation', first("What the car's own logs show")]]
 out.set_toc(toc)
 out.set_metadata({'title': 'TED Drive - WRO FE 2026 Engineering Journal (APAC 2026 edition, rev 5)', 'author': 'Team TED Drive',
                   'subject': 'WRO Future Engineers 2026, APAC', 'creator': 'docs/journal/build_apac_journal.py'})

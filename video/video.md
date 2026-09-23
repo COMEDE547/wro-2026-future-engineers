@@ -16,3 +16,10 @@ pre-v1 R2 stack; exact build state not recorded.
 *Corrected 2026-08-10: this file previously said the physical build was pending
 and that the Obstacle controller lived off-repo. Both statements had been false
 since 2026-08-05 and 2026-08-08 respectively.*
+
+## APAC 2026 vehicle
+
+| Challenge | Video | Notes |
+|---|---|---|
+| Obstacle Challenge | [`apac-2026-obstacle-run.mp4`](apac-2026-obstacle-run.mp4), 3 min 19 s | Recorded about 20 September 2026 on the code of that day, before the final update: from the parking lot, three laps (12 corners), then a stop after the twelfth corner; no parking. A YouTube link will be added. |
+| Open Challenge | not yet recorded | |
