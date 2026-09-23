@@ -1,6 +1,6 @@
 # APAC 2026 software — Obstacle Challenge state machine
 
-**Scope.** How the Obstacle Challenge code works. §1-§6 describe [`main.py`](../src/apac-2026/obstacle-challenge/main.py) as released in v0.4.0 (from the coach's commit of 2026-09-08; [that file](https://github.com/teddriveomo/wro-2026-future-engineers/blob/a0b36254bd93709a8d6fc53e1eead0ca39324006/src/apac-2026/obstacle-challenge/main.py)); §10 lists what the current version, from the coach's working copy of 23 September 2026, changes. §8 covers the parking modules and §9 the pillar and line detection of the current file. Names in capitals are states; names in `code` are constants, given with their values. The Nationals software is in [3 - Software](3_software.md) and the vehicle in [APAC 2026 vehicle](apac_2026_vehicle.md).
+**Scope.** How the Obstacle Challenge code works. §1-§6 describe [`main.py`](../src/apac-2026/obstacle-challenge/main.py) as released in v0.4.0 (from the coach's commit of 2026-09-08; [that file](https://github.com/teddriveomo/wro-2026-future-engineers/blob/a0b36254bd93709a8d6fc53e1eead0ca39324006/src/apac-2026/obstacle-challenge/main.py)); §10 lists what the current version, from the coach's working copy of 23 September 2026, changes. §8 covers the parking modules, §9 the pillar and line detection of the current file and §11 the Open Challenge firmware. Names in capitals are states; names in `code` are constants, given with their values. The Nationals software is in [3 - Software](3_software.md) and the vehicle in [APAC 2026 vehicle](apac_2026_vehicle.md).
 
 ## 1. The control loop
 
@@ -151,7 +151,7 @@ Two files beside `main.py` park the car at the end of the run. After the twelfth
 
 **Which one.** A full parallel park scores 15 points against 7 for a partial or non-parallel one (2026 General Rules, scoring element 1.8.2), and touching a limitation ends the round (rule 9.24.7). As committed, the switches select `partial_parking.py`; parking parallel means setting `PARALLEL_PARKING = True` and `PARTIAL_PARKING = False`. Every `main.py` name the parking modules use exists in the committed `main.py`.
 
-**Camera calibration.** Both files need `parking_camera_calibration.json` beside them. It depends on how the camera is mounted, so it is made on the vehicle and is not in the repository: `python parallel_parking.py --calibrate` shows the camera image, and clicking the four corners of a rectangle on the floor (near-left, near-right, far-right, far-left; 100 × 150 cm unless `--calibration-width-cm` and `--calibration-depth-cm` say otherwise) saves the homography from image to floor. If the file is missing, `parallel_parking.py` starts this calibration itself and exits after saving.
+**Camera calibration.** Both files need `parking_camera_calibration.json` beside them. It depends on how the camera is mounted; the team's file, made with the September camera mount, is committed beside them. To make a new one: `python parallel_parking.py --calibrate` shows the camera image, and clicking the four corners of a rectangle on the floor (near-left, near-right, far-right, far-left; 100 × 150 cm unless `--calibration-width-cm` and `--calibration-depth-cm` say otherwise) saves the homography from image to floor. If the file is missing, `parallel_parking.py` starts this calibration itself and exits after saving.
 
 ### Finding the space (`parallel_parking.py`)
 
@@ -261,3 +261,14 @@ The file now in the repository, from the coach's working copy of 23 September 20
 | 5 | same pillar ignored for 0.6 s after a pass (`PILLAR_REACQUIRE_COOLDOWN_SECONDS`) | removed; two pillars per straight instead |
 | 3 | corner reverse at speed 70 for at most 0.8 s; deep recovery at speed 55 | 200 for at most 0.5 s; 75 |
 | 2 | obstacle corner confirmed on 5 samples in 0.30 s within 8° | 3 samples in 0.25 s within 12° |
+
+## 11. Open Challenge firmware
+
+[`open-challenge/open-challenge.ino`](../src/apac-2026/open-challenge/open-challenge.ino) drives the Open Challenge on the ESP32 alone, without the Raspberry Pi or the camera. It uses the same pins, I2C multiplexer channels and sensors as the Obstacle firmware; the servo centre is `SERVO_CENTER = 106` here and 85 in the Obstacle firmware. Constants are in the file.
+
+1. **Start and direction.** After the start button (GPIO32), the car drives at speed 190 (`DETECTION_SPEED`) until one side reading opens beyond 100 cm on 3 samples (`DIRECTION_DETECTION_DISTANCE_CM`, `DIRECTION_CONFIRMATION_SAMPLES`); that side sets clockwise or anticlockwise, keeping the original priority for the right side.
+2. **Wall following.** At speed 190 (`FOLLOW_SPEED`) the car holds its heading (gains 0.55 and 0.08, `HEADING_KP`, `HEADING_KD`) and keeps 30 cm from the followed wall (`TARGET_LEFT_DISTANCE_CM`, `TARGET_RIGHT_DISTANCE_CM`; gain 0.50, at most 12), with at most 25 of steering in total.
+3. **Corners.** When the followed side opens beyond 75 cm on the left or 50 cm on the right on 3 samples, the car turns 90° on the BNO055 heading at speed 160 (gains 0.75 and 0.06, at most 35 of steering) until the error is under 4°. It then drives at speed 210 for a minimum time (500 ms clockwise, none anticlockwise) and reacquires the wall below 50 cm on 3 samples.
+4. **Finish.** After twelve turns (`TOTAL_TURNS`) it holds the heading of the last turn and brakes when the centre TF-Luna reads 150 cm or less (`FINAL_CENTER_DISTANCE_CM`); the electrical brake then stays latched.
+
+The control loop runs every 10 ms (`CONTROL_PERIOD_US`), and servo pulses come from a dedicated task on the other core (`servoPulseTask`, 20 ms frames).

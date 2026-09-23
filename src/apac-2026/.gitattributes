@@ -1,3 +1,4 @@
 # Stored byte-for-byte so the MD5s in README.md verify on any checkout.
 *.py -text
 *.ino -text
+*.json -text

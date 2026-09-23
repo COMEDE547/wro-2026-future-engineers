@@ -140,6 +140,7 @@ snapshot = """<section>%s<h2><span class="n">01</span>Snapshot</h2><p class="led
 <tr><td>Power</td><td>3S 2200 mAh pack: 1.34 A idle, 1.93-2.02 A driving, 2.77 A worst case (each branch measured, 21 September).</td></tr>
 <tr><td>Compute</td><td>Raspberry Pi 5 (camera, detection, decisions) and ESP32 (drive motor, servo, three TF-Luna, LEDs), linked by USB serial.</td></tr>
 <tr><td>Software</td><td><code>main.py</code> (the coach's working copy, 23 September): Lab-colour pillar detection with tape-line and black-wall corner cues, a state machine that recentres between the walls after every pillar and corner and steers off a side wall during pillar passes, two pillars per straight, and a hand-over to a parking module after the twelfth corner (<code>partial_parking.py</code> as committed; <code>parallel_parking.py</code> is one switch away).</td></tr>
+<tr><td>Open Challenge</td><td><code>open-challenge.ino</code> on the ESP32 alone: direction detection, wall following at 30 cm with heading hold, twelve 90&deg; turns on the BNO055 heading, and a stop 150 cm from the wall ahead (&sect;04).</td></tr>
 <tr><td>Evidence</td><td>Bench measurements of drive, power and camera geometry (&sect;02, &sect;03); detection shown on the mat (&sect;04); code stored byte-for-byte with MD5 checksums (&sect;06).</td></tr>
 </table>
 <h3>Contents</h3>

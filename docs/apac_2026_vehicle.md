@@ -117,7 +117,7 @@ With the Pi's peak treated as its average, a 2200 mAh pack used to 80 % gives ab
 |---|---|---|
 | Pi 5 fed from a USB-A fast-charge module (no USB-PD) | The Pi peaked at 11.8 W (2.36 A at 5 V, measured) and the module's rating has not been read; without USB-PD the Pi limits its USB ports to 600 mA in total, and the camera and the ESP32 both draw from them | Run `vcgencmd get_throttled` after a full run; move to a 5 A USB-C PD supply if it reports problems |
 | WS2812 data at the ESP32's 3.3 V | The LED input-high threshold is 0.7 × VDD (3.5 V at 5 V); a marginal signal can flicker or show the wrong colour, tinting the scene | Watch for flicker in the camera image; add a level shifter if seen |
-| 6 V motor on the 11.1 V pack | Heat and brush wear: `SPEED = 210` averages 9.1–10.4 V, above the 6 V rating (§3) | Temperature check after a 3-minute run |
+| 6 V motor on the 11.1 V pack | Heat and brush wear: `SPEED = 215` averages 9.4–10.6 V, above the 6 V rating (§3) | Temperature check after a 3-minute run |
 | Drive motor held against a wall | 1.51 A through the TB6612FNG at stall, above its 1.2 A continuous rating (§5); the driver's thermal shutdown or the motor's heating would stop the car | The Pi's distance logic backs away (escape at 31 % duty for 0.30 s, at least 3 cm of progress, at most 2 attempts); on most surfaces the rear wheels spin before a full stall (§3) |
 | Firmware front stop: the ESP32 stopped the drive motor when the front TF-Luna read under 18 cm or its reading went stale | **Observed:** it stopped the car and ended a run (team) | Removed from the firmware on 2026-09-10; collision handling moved to the Pi (§7) |
 | Camera angle | Pixel-based settings shift if the angle moves | Hinge glued; reference frame before each round |
@@ -156,7 +156,6 @@ From the Nationals firmware ([`round2_ino.ino`](../src/Round%202/round2_ino/roun
 
 - The wall-avoidance runs behind the side-roller removal (§7): how many, on which code version, with what result.
 - Open Challenge and Obstacle Challenge videos of this vehicle.
-- The Open Challenge code for this vehicle; [`src/apac-2026/`](../src/apac-2026/) holds the Obstacle Challenge stack.
 - Measurements: turning circle at walking pace and race speed, the blind-zone tape check, motor temperature after a full run, `vcgencmd get_throttled` after a full run.
 - LED misread counts on the same pillars with the LEDs off and on (§7).
 - Run logs from `main.py` (with `ENABLE_RUN_CSV_LOGGING = True` it writes `run_logs/round2_run_*.csv`).
