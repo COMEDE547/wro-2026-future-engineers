@@ -24,7 +24,7 @@ The code the vehicle runs at WRO Future Engineers APAC 2026: the Obstacle Challe
 
 | Setting | Value | File |
 |---|---|---|
-| Drive speed | `SPEED = 215` (84 % duty; 210 in v0.4.0) | `main.py` |
+| Drive speed | `SPEED = 215` (84 % duty) | `main.py` |
 | Turning, parking, collision escape | `100`, `70`, `80` | `main.py` |
 | Leave the parking area at the start | `ENABLE_PARKING_EXIT = True` | `main.py` |
 | Park at the end | `ENABLE_PARKING_IN = True`: after the twelfth corner `main.py` hands over to a parking module, chosen by `PARTIAL_PARKING = True` and `PARALLEL_PARKING = False` as committed (exactly one must be on; [software §8](../../docs/apac_2026_software.md#8-parking-modules)) | `main.py` |
@@ -41,7 +41,7 @@ On the Pi, `main.py` sets GPIO3 high once it has initialised and is waiting for 
 
 ## Provenance and checksums
 
-Copied on 2026-09-21 from the team coach's working repository (private; commit `63c2b31`). The two parking modules arrived on 2026-09-23 as a Google Drive download (`drive-download-20260922T184733Z-1-001.zip`, which dates them 2026-09-22 03:49 and 04:26) and are stored unchanged. The ESP32 file was `obstacle-challenge-final-code_withLED.ino`; it is renamed here and placed in a folder of the same name, as the Arduino IDE expects. The files are stored byte-for-byte (see [`.gitattributes`](.gitattributes)), so these MD5s can be checked on any checkout:
+The files come from the team's working copy of the code (the coach's repository, commit `63c2b31`, with the team's later changes) as of 23 September 2026. They are stored byte-for-byte (see [`.gitattributes`](.gitattributes)), so these MD5s can be checked on any checkout:
 
 | File | MD5 |
 |---|---|
@@ -54,10 +54,4 @@ Copied on 2026-09-21 from the team coach's working repository (private; commit `
 | `open-challenge.ino` | `caf69d495f3d0f259a796dfcb81e5b5c` |
 | `parking_camera_calibration.json` | `d2ebad50bf7a573496625ee7d20f26da` |
 
-`main.py` was replaced on 2026-09-23 by the version dated 2026-09-18, from a second Google Drive download (`drive-download-20260922T190246Z-1-001.zip`) whose `cmd.txt` shows the coach starting `final-code/obstacle-challenge-final-code/main.py`. The version it replaces (MD5 `238dd1af810112d09598e433b483d5f8`), which [software §1-§6](../../docs/apac_2026_software.md) describes, stays in the history ([the file before the change](https://github.com/teddriveomo/wro-2026-future-engineers/blob/a0b36254bd93709a8d6fc53e1eead0ca39324006/src/apac-2026/obstacle-challenge/main.py)). The ESP32 firmware in those downloads was byte-identical to the file then committed (MD5 `28a6cdfb`). Every `main.py` name the parking modules use also exists in the 2026-09-18 file.
-
-Not included, because none of them runs on this vehicle: the build without LEDs, an older firmware for a smaller robot, backup copies (`.bak`), component tests and the rest of the coaching repository. The Open Challenge variant for the smaller robot is left out for the same reason.
-
-On 2026-09-23 the Obstacle Challenge files were updated again from the coach's working copy (the `FutureEngineers` folder: commit `63c2b31` plus uncommitted changes): `main.py` now hands over to a parking module after the twelfth corner ([software §10](../../docs/apac_2026_software.md#10-what-the-current-mainpy-changes)), the parking modules and `lab-calibration.py` carry new values, and the ESP32 firmware sets the LEDs to brightness 80 (50 before). Earlier versions stay in the history. Every `main.py` name the parking modules use exists in the committed `main.py`.
-
-Also left out from the September downloads: earlier and experimental versions of `main.py` (`main_16_Sep.py`, `mainversion2.py`, `corner_slot_filler.py`) and standalone tests (`parking_entry_only.py`, `cornering_sequence.py`). From that working copy, also left out: `main_backgroung_notworking.py` (an experiment its name marks as not working), `parking_exit_only.py` and the `basic-functions/` and `invididual-components/` tests.
+Not included, because none of them runs on this vehicle: the build without LEDs, the firmware and the Open Challenge variant for a smaller robot, backup copies, component tests, experiments (`main_backgroung_notworking.py`, `corner_slot_filler.py`, `parking_entry_only.py`, `parking_exit_only.py`, `cornering_sequence.py`) and the HSV and RGB colour tools.

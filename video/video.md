@@ -21,5 +21,6 @@ since 2026-08-05 and 2026-08-08 respectively.*
 
 | Challenge | Video | Notes |
 |---|---|---|
-| Obstacle Challenge | [`apac-2026-obstacle-run.mp4`](apac-2026-obstacle-run.mp4), 3 min 19 s | Recorded about 20 September 2026 on the code of that day, before the final update: from the parking lot, three laps (12 corners), then a stop after the twelfth corner; no parking. A YouTube link will be added. |
-| Open Challenge | not yet recorded | |
+| Obstacle Challenge | [`apac-2026-obstacle-run.mp4`](apac-2026-obstacle-run.mp4), 3 min 19 s | Recorded about 20 September 2026: from the parking lot, three laps (12 corners), then a stop after the twelfth corner. |
+| Open Challenge | https://youtu.be/PbOQJ54wr-0 (33 s) | The India National Championship run, August 2026, with the first vehicle |
+| Obstacle Challenge | https://youtu.be/dBjqMQ-jRBA (100 s) | The India National Championship run, August 2026, with the first vehicle |

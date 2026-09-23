@@ -1,6 +1,6 @@
 # APAC 2026 test logs
 
-**Scope.** What the car's own logs record from 15 to 23 September 2026: 260 runs of `main.py` (`round2_run_*.csv`, one row per telemetry sample and one per event, written when `ENABLE_RUN_CSV_LOGGING = True`) and 32 attempts of `parallel_parking.py` (`parking_run_*.csv`, `ENABLE_RUN_LOGGING = True`). Every figure here is computed from those files by [`run_metrics.py`](../src/apac-2026/tools/run_metrics.py). The per-run summary is [`data/run_summary_2026-09.csv`](data/run_summary_2026-09.csv), the parking attempts are in [`data/parking_runs_2026-09-20/`](data/parking_runs_2026-09-20/), and [`data/example_full_run_20260919_192712.csv`](data/example_full_run_20260919_192712.csv) is the fastest full run, whole. The code changed from day to day, so each day's figures belong to that day's version; the final `main.py` of 23 September logs nothing by default and has no full run here.
+**Scope.** What the car's own logs record from 15 to 23 September 2026: 260 runs of `main.py` (`round2_run_*.csv`, one row per telemetry sample and one per event, written when `ENABLE_RUN_CSV_LOGGING = True`) and 32 attempts of `parallel_parking.py` (`parking_run_*.csv`, `ENABLE_RUN_LOGGING = True`). Every figure here is computed from those files by [`run_metrics.py`](../src/apac-2026/tools/run_metrics.py). The per-run summary is [`data/run_summary_2026-09.csv`](data/run_summary_2026-09.csv), the parking attempts are in [`data/parking_runs_2026-09-20/`](data/parking_runs_2026-09-20/), and [`data/example_full_run_20260919_192712.csv`](data/example_full_run_20260919_192712.csv) is the fastest full run, whole. The code was tuned from day to day, so each day's figures belong to that day's settings.
 
 ## 1. Full runs from the parking lot
 
@@ -46,7 +46,7 @@ The most frequent, the corner-clearance reverse that made no progress, is the st
 | 17:26 | 180 | TRACK_OPENING after 13 s | 193 |
 | 17:32 | 176 | COMPLETE after 88 s | 264 |
 
-At those speeds three laps plus parking took longer than a three-minute round. The final `main.py` raises the pillar, recentering and turn speeds ([software §10](apac_2026_software.md)).
+At those speeds three laps plus parking took longer than a three-minute round.
 
 ## 4. After the side rollers came off, 22 September
 
@@ -54,6 +54,13 @@ At those speeds three laps plus parking took longer than a three-minute round. T
 
 ## 5. What the logs do not show
 
-- A full run of the final `main.py` (23 September), which logs nothing by default.
 - Whether a pillar or a wall was touched: the logs record states, distances and commands, not contacts.
 - How squarely the car ended in the parking space.
+
+## 6. Performance videos
+
+| Challenge | Video | Run |
+|---|---|---|
+| Obstacle Challenge | [`video/apac-2026-obstacle-run.mp4`](../video/apac-2026-obstacle-run.mp4), 3 min 19 s | The APAC vehicle, about 20 September: from the parking lot, three laps (12 corners), then a stop after the twelfth corner |
+| Open Challenge | [youtu.be/PbOQJ54wr-0](https://youtu.be/PbOQJ54wr-0), 33 s | India National Championship, August 2026 (the first vehicle) |
+| Obstacle Challenge | [youtu.be/dBjqMQ-jRBA](https://youtu.be/dBjqMQ-jRBA), 100 s | India National Championship, August 2026 (the first vehicle) |

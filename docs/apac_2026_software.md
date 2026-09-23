@@ -1,68 +1,77 @@
-# APAC 2026 software — Obstacle Challenge state machine
+# APAC 2026 software - Obstacle Challenge state machine
 
-**Scope.** How the Obstacle Challenge code works. §1-§6 describe [`main.py`](../src/apac-2026/obstacle-challenge/main.py) as released in v0.4.0 (from the coach's commit of 2026-09-08; [that file](https://github.com/teddriveomo/wro-2026-future-engineers/blob/a0b36254bd93709a8d6fc53e1eead0ca39324006/src/apac-2026/obstacle-challenge/main.py)); §10 lists what the current version, from the coach's working copy of 23 September 2026, changes. §8 covers the parking modules, §9 the pillar and line detection of the current file and §11 the Open Challenge firmware. Names in capitals are states; names in `code` are constants, given with their values. The Nationals software is in [3 - Software](3_software.md) and the vehicle in [APAC 2026 vehicle](apac_2026_vehicle.md).
+**Scope.** How the Obstacle Challenge code in [`main.py`](../src/apac-2026/obstacle-challenge/main.py) works: the control loop and the run (§1–§6), validation (§7), the parking modules (§8), pillar and line detection (§9), staying off the walls (§10) and the Open Challenge firmware (§11). Names in capitals are states; names in `code` are constants, given with their values.
 
 ## 1. The control loop
 
 In a loop that sleeps 10 ms between passes (`NAVIGATION_LOOP_SECONDS`), the Raspberry Pi:
 
 1. reads the newest ESP32 telemetry line: heading, the left, centre and right TF-Luna distances, and a validity mask;
-2. takes the newest camera frame and runs the pillar and tape-line detector (`UnifiedPillarDetector`, §9);
+2. takes the newest camera frame, masks its sides and runs the pillar and tape-line detector (`UnifiedPillarDetector`, §9);
 3. calls the controller (`ObstacleChallengeController.update`), which sends one `speed,direction,steer` command to the ESP32.
 
-The run starts once the start button has been held for 2 s: the ESP32 then sends `OK` and the Pi answers `OK`. It ends in COMPLETE after 12 corners (`COUNTER_MAX`), that is three laps. Parking exit is on (`ENABLE_PARKING_EXIT = True`); parking at the end is off (`ENABLE_PARKING_IN = False`). Every state change is printed as `[NAV] OLD -> NEW: reason`.
+The run starts once the start button has been held for 2 s: the ESP32 then sends `OK` and the Pi answers `OK`. The car leaves the parking lot (`ENABLE_PARKING_EXIT = True`), drives three laps and, after the twelfth corner (`COUNTER_MAX = 12`), hands over to a parking module (PARKING_PARALLEL_HANDOFF, §8). Every state change is printed as `[NAV] OLD -> NEW: reason`, and logged when `ENABLE_RUN_CSV_LOGGING = True` (§7).
 
 ## 2. The run
+
+The diagrams in this section and in §3 show the transitions the car took in its logged runs of 19–22 September (89 runs, §7); the labels paraphrase the reasons the code prints.
+
+**Leaving the parking lot.**
 
 ```mermaid
 stateDiagram-v2
     direction TB
-    [*] --> ParkingExit : start button held 2 s
-    state ParkingExit {
-        [*] --> PARKING_EXIT_DIRECTION
-        state "PARKING_EXIT_ARC_1, ARC_2 (reverse), ARC_3" as ARCS
-        state "CW_RETURN_1 and 2, or ANTI_RETURN_1 and 2" as LANE_RETURN
-        state first_pillar <<choice>>
-        PARKING_EXIT_DIRECTION --> ARCS : 7 of 9 wall readings agree
-        ARCS --> PARKING_EXIT_SCAN : each target heading reached
-        PARKING_EXIT_SCAN --> first_pillar : first pillar, up to 20 frames
-        first_pillar --> PARKING_EXIT_TIMED_CURVE : clockwise and red, or anticlockwise and green
-        first_pillar --> LANE_RETURN : any other colour, or none
-        PARKING_EXIT_TIMED_CURVE --> PARKING_EXIT_RED_REVERSE : clockwise red, front ≤ 45 cm
-        PARKING_EXIT_RED_REVERSE --> PARKING_EXIT_RED_FORWARD : 0.8 s
-        PARKING_EXIT_RED_FORWARD --> PARKING_EXIT_SHARP_RETURN : 0.9 s
-        PARKING_EXIT_TIMED_CURVE --> PARKING_EXIT_SHARP_RETURN : anticlockwise green, 2 s
-        PARKING_EXIT_SHARP_RETURN --> [*] : heading within 4°
-        LANE_RETURN --> [*] : lane heading reached
-    }
-    ParkingExit --> FOLLOW_STRAIGHT
+    [*] --> PARKING_EXIT_DIRECTION : start button held 2 s
+    PARKING_EXIT_DIRECTION --> PARKING_EXIT_ARC_1 : side walls give the direction
+    PARKING_EXIT_ARC_1 --> PARKING_EXIT_ARC_2 : heading 10°
+    PARKING_EXIT_ARC_2 --> PARKING_EXIT_ARC_3 : reverse arc to 25°
+    PARKING_EXIT_ARC_3 --> PARKING_EXIT_FORWARD_ALIGN : 35°
+    PARKING_EXIT_FORWARD_ALIGN --> PARKING_EXIT_REVERSE_VIEW : heading within 8°
+    PARKING_EXIT_FORWARD_ALIGN --> FAULT : 4.5 s without alignment
+    PARKING_EXIT_REVERSE_VIEW --> FOLLOW_STRAIGHT : lane heading set
+    PARKING_EXIT_REVERSE_VIEW --> PARKING_EXIT_SCAN : 2 s reverse, pillar check
+    PARKING_EXIT_SCAN --> PARKING_EXIT_CW_RETURN_1 : green or no pillar
+    PARKING_EXIT_SCAN --> PARKING_EXIT_TIMED_CURVE : red on the turning side
+    PARKING_EXIT_CW_RETURN_1 --> PARKING_EXIT_CW_RETURN_2 : 30°
+    PARKING_EXIT_CW_RETURN_2 --> PARKING_EXIT_COMPLETE : 0°
+    PARKING_EXIT_COMPLETE --> FOLLOW_STRAIGHT
+    PARKING_EXIT_TIMED_CURVE --> PARKING_EXIT_RED_REVERSE : front close to the pillar
+    PARKING_EXIT_RED_REVERSE --> PARKING_EXIT_RED_FORWARD : reverse done
+    PARKING_EXIT_RED_FORWARD --> PARKING_EXIT_SHARP_RETURN : 0.5 s forward
+    PARKING_EXIT_SHARP_RETURN --> FOLLOW_STRAIGHT : lane heading reached
+```
+
+An anticlockwise start mirrors the lane return (PARKING_EXIT_ANTI_RETURN_1 and _2).
+
+**Three laps.**
+
+```mermaid
+stateDiagram-v2
+    direction TB
     FOLLOW_STRAIGHT --> ACQUIRE_PILLAR : pillar in view
     ACQUIRE_PILLAR --> PASS_RED_RIGHT : red, 3 of 5 frames
     ACQUIRE_PILLAR --> PASS_GREEN_LEFT : green, 3 of 5 frames
-    ACQUIRE_PILLAR --> FOLLOW_STRAIGHT : unconfirmed after 0.8 s
+    ACQUIRE_PILLAR --> FOLLOW_STRAIGHT : not confirmed in 1.2 s
     PASS_RED_RIGHT --> CONFIRM_PASSED : pillar leaves the view
     PASS_GREEN_LEFT --> CONFIRM_PASSED : pillar leaves the view
-    CONFIRM_PASSED --> FOLLOW_STRAIGHT : clear for 0.25 s
-    CONFIRM_PASSED --> APPROACH_CORNER : a corner was paused for this pillar
-    FOLLOW_STRAIGHT --> APPROACH_CORNER : wall ≤ 45 cm and turning side ≥ 150 cm, or both tape lines
-    APPROACH_CORNER --> ACQUIRE_PILLAR : pillar ahead, pass it first
-    APPROACH_CORNER --> FOLLOW_STRAIGHT : evidence gone
-    APPROACH_CORNER --> TURN_90 : 5 agreeing samples, wall ≤ 38 cm
-    TURN_90 --> TURN_RETRY_PAUSE : 5 s timeout
-    TURN_RETRY_PAUSE --> TURN_90 : retry in the other mode
-    TURN_90 --> POST_TURN_BACKUP : heading within 5° of the new lane
-    TURN_90 --> COMPLETE : 12th corner
-    POST_TURN_BACKUP --> RECENTER : 2.8 s reverse
-    RECENTER --> FOLLOW_STRAIGHT : 0.25 s
-    COMPLETE --> [*] : brake
-    note right of CONFIRM_PASSED
-        If the pillar comes back into view,
-        the car returns to its pass state.
-    end note
+    CONFIRM_PASSED --> PILLAR_RECENTER : pillar cleared
+    PILLAR_RECENTER --> FOLLOW_STRAIGHT : back on the lane centre
+    PILLAR_RECENTER --> APPROACH_CORNER : corner geometry locked
+    FOLLOW_STRAIGHT --> APPROACH_CORNER : corner geometry locked
+    APPROACH_CORNER --> TURN_90 : end wall close
+    APPROACH_CORNER --> FOLLOW_STRAIGHT : 3 s without a corner
+    TURN_90 --> TURN_90 : reverse blocked, forward arc
+    TURN_90 --> POST_TURN_BACKUP : new heading reached
+    POST_TURN_BACKUP --> POST_TURN_SCAN_HOLD : 0.35 s reverse
+    POST_TURN_SCAN_HOLD --> ACQUIRE_PILLAR : pillar in view
+    POST_TURN_SCAN_HOLD --> RECENTER : 0.2 s, no pillar
+    RECENTER --> FOLLOW_STRAIGHT
+    TURN_90 --> PARKING_PARALLEL_HANDOFF : twelfth corner
+    PARKING_PARALLEL_HANDOFF --> [*] : parking module
 ```
 
-- Red pillars are passed on the right and green ones on the left.
-- From any pillar state, a pillar seen beyond both tape lines within 5 s of a pass (`ALPHA_POSITION_WINDOW_SECONDS`) belongs to the next straight, so the car goes to APPROACH_CORNER and takes the corner first.
+- Red pillars are passed on the right and green ones on the left. If the pillar is still in view after CONFIRM_PASSED, the car returns to its pass state.
+- At most two pillars are taken on each straight (`MAX_PILLARS_PER_STRAIGHT = 2`); a pillar seen beyond both tape lines within 5 s of a pass (`ALPHA_POSITION_WINDOW_SECONDS`) belongs to the next straight, so the corner is taken first.
 - Every driving state brakes and holds while the telemetry is older than 0.30 s (`TELEMETRY_STALE_SECONDS`), a TF-Luna or the heading is invalid, or the camera frame is older than 0.30 s (`CAMERA_STALE_SECONDS`). It resumes in the same state, and the hold does not count against that state's timers.
 
 ## 3. Recovery and faults
@@ -70,63 +79,69 @@ stateDiagram-v2
 ```mermaid
 stateDiagram-v2
     direction TB
-    state "FOLLOW_STRAIGHT, APPROACH_CORNER or RECENTER" as DRIVING
-    state "ACQUIRE_PILLAR, a PASS state or CONFIRM_PASSED" as PILLAR
-    DRIVING --> HARD_STOP_RELEASE : front ≤ 10 cm
-    DRIVING --> DEEP_REVERSE_RECOVERY : 4th release at the same corner
-    HARD_STOP_RELEASE --> REASSESS_FRONT : front ≥ 30 cm, or reverse limit
-    HARD_STOP_RELEASE --> DEEP_REVERSE_RECOVERY : short release used up
-    DEEP_REVERSE_RECOVERY --> REASSESS_FRONT : clear and aligned, or 0.8 s
+    state "FOLLOW_STRAIGHT, APPROACH_CORNER or PILLAR_RECENTER" as DRIVING
+    state "ACQUIRE_PILLAR or a PASS state" as PILLAR
+    DRIVING --> HARD_STOP_RELEASE : front at 5 cm
+    HARD_STOP_RELEASE --> REASSESS_FRONT : short reverse done
+    HARD_STOP_RELEASE --> DRIVING : latch released
+    HARD_STOP_RELEASE --> DEEP_REVERSE_RECOVERY : pillar release incomplete
+    REASSESS_FRONT --> FOLLOW_STRAIGHT : front clear
+    REASSESS_FRONT --> APPROACH_CORNER : corner geometry restored
     REASSESS_FRONT --> ACQUIRE_PILLAR : pillar in view
-    REASSESS_FRONT --> APPROACH_CORNER : wall and opening agree
-    REASSESS_FRONT --> FOLLOW_STRAIGHT : front ≥ 30 cm
-    REASSESS_FRONT --> EMERGENCY_ESCAPE : still ≤ 10 cm after 1 s
-    PILLAR --> EMERGENCY_ESCAPE : front ≤ 10 cm
-    EMERGENCY_ESCAPE --> PILLAR : front 3 cm farther after a 0.3 s reverse
-    EMERGENCY_ESCAPE --> FAULT : 2 reverses without progress
-    HARD_STOP_RELEASE --> FAULT : no reverse applied, or retry limit
-    TURN_90 --> FAULT : more than 3 turn retries
-    APPROACH_CORNER --> FAULT : wall corner not confirmed in 3 s
+    REASSESS_FRONT --> HARD_STOP_RELEASE : still close
+    REASSESS_FRONT --> CORNER_CLEARANCE_RECOVERY : at a corner, up to 3 attempts
+    CORNER_CLEARANCE_RECOVERY --> REASSESS_FRONT : 30 cm reached
+    REASSESS_FRONT --> FAULT : corner reverse made no progress
+    PILLAR --> EMERGENCY_ESCAPE : front at 5 cm
+    EMERGENCY_ESCAPE --> PILLAR : front improved
+    EMERGENCY_ESCAPE --> DEEP_REVERSE_RECOVERY : 2 pulses, little progress
+    DEEP_REVERSE_RECOVERY --> REASSESS_FRONT : clearance or time limit
     FAULT --> [*] : brake for the rest of the run
 ```
 
-EMERGENCY_ESCAPE resumes whichever state it interrupted. The parking-exit states also go to FAULT when a timed step overruns (4 s to reach the first red pillar, 5 s to reach the lane heading).
+EMERGENCY_ESCAPE reverses for 0.3 s at speed 80 and resumes the state it interrupted once the front has improved by at least 3 cm (`EMERGENCY_ESCAPE_*`); after 2 pulses without that progress, DEEP_REVERSE_RECOVERY reverses at speed 75 for 0.6 to 0.8 s, aiming for 70 cm of clearance (`DEEP_RECOVERY_*`). HARD_STOP_RELEASE backs off until the front reads 30 cm (`HARD_STOP_RELEASE_CM`).
+
+The code prints a reason with every FAULT: the turn could not reach its target after retries; the ESP32 did not report an applied reverse; the corner-clearance reverse made no reliable progress; both side walls were too close for a corner reverse; in the parking exit, the forward heading alignment timed out (4.5 s), the red approach took more than 4 s, or the timed return did not reach its heading within 5 s.
 
 ## 4. Why the states are split this way
 
 | State | Reason |
 |---|---|
 | PARKING_EXIT_DIRECTION | The lane direction must be known before the first corner. The code takes it from which side wall is nearer: 7 of the last 9 readings must agree, each with left and right at least 15 cm apart (`DIRECTION_MIN_DIFFERENCE_CM`). |
+| PARKING_EXIT_ARC_1 to _3 | Three heading arcs, the middle one in reverse, turn the car out of the lot to 35° without touching the parking-lot limitations. |
+| PARKING_EXIT_FORWARD_ALIGN, PARKING_EXIT_REVERSE_VIEW | The car straightens to within 8° (at most 4.5 s), then reverses with the camera watching the start section, so the first pillar is seen before the car commits to a side. |
 | PARKING_EXIT_SCAN | A pillar may stand just outside the parking lot. If it is on the side the car turns toward (red when driving clockwise, green anticlockwise), a timed pass keeps the car on its correct side; otherwise two heading arcs return the car to its lane. |
-| ACQUIRE_PILLAR | One frame of red or green must not steer the car, so a pillar is followed only once 3 of 5 frames confirm it. |
+| ACQUIRE_PILLAR | One frame of red or green must not steer the car, so a pillar is followed only once 3 of 5 frames confirm it; an unconfirmed candidate is dropped after 1.2 s (`PILLAR_ACQUIRE_TIMEOUT_SECONDS`). |
 | CONFIRM_PASSED | The camera loses a pillar before the rear of the car has cleared it, so the car holds its line for 0.25 s (`PILLAR_CLEARANCE_HOLD_SECONDS`). |
-| APPROACH_CORNER | Neither a tape line nor a short front distance alone proves a corner. A turn needs the end wall within 38 cm (`CORNER_TRIGGER_CM`), the side the car turns toward open to at least 150 cm (`OBSTACLE_CORNER_SIDE_OPEN_CM`) and the heading within 8° of the straight, in 5 agreeing samples over at least 0.30 s. |
-| TURN_90 | The target is the straight's heading plus or minus 90°, reached within 5° (`TURN_HEADING_TOLERANCE`). When the outer side has at least 60 cm of room (`CORNER_REVERSE_CLEARANCE_CM`), the turn starts with a reverse arc of up to 0.8 s; otherwise it is driven forward. |
-| POST_TURN_BACKUP | After each corner the car reverses for 2.8 s (`POST_TURN_BACKUP_SECONDS`) so that the next straight and its pillars fit in the camera's view. |
+| PILLAR_RECENTER | A pass leaves the car angled towards a wall. A timed counter-steer alone would not prove the drift was cancelled, so the car counter-steers until its heading swings back past straight, then centres between the walls (§10). |
+| APPROACH_CORNER | Neither a tape line nor a short front distance alone proves a corner. The approach locks after three fresh front readings of 105 cm or less; the turn needs the end wall within 35 cm (`OBSTACLE_CORNER_TRIGGER_CM`), the side the car turns toward open to at least 150 cm and the heading within 12° of the straight, in 3 agreeing samples over 0.25 s. After 3 s without a corner the car resumes the straight. |
+| TURN_90 | The target is the straight's heading plus or minus 90°, reached within 5° (`TURN_HEADING_TOLERANCE`). With at least 60 cm of room on the outer side (`CORNER_REVERSE_CLEARANCE_CM`) the turn starts with a reverse arc of up to 0.5 s; if a wall blocks the reverse, the turn continues as a forward arc. |
+| POST_TURN_BACKUP, POST_TURN_SCAN_HOLD | After each corner the car reverses for 0.35 s at speed 125 and stops for 0.2 s, "so several stationary frames can prove a nearby pillar" before the next straight. |
+| CORNER_CLEARANCE_RECOVERY | A car pressed against the end wall cannot turn. It reverses (speed 150, at most 0.4 s per attempt, up to 3 attempts) until the front has 30 cm of clearance, then re-checks the corner while stopped. |
 
 ## 5. Edge cases the code handles
 
 | Situation | What happens |
 |---|---|
 | Telemetry or camera stale, or a sensor invalid | Brake and hold the current state; resume when fresh. |
-| The same pillar seen again just after a pass | Ignored for 0.6 s (`PILLAR_REACQUIRE_COOLDOWN_SECONDS`). |
-| Candidate pillar not confirmed | Back to FOLLOW_STRAIGHT after 0.8 s (`PILLAR_ACQUIRE_TIMEOUT_SECONDS`). |
-| Pillar ahead during a corner approach | The corner is paused, the pillar is passed, then the corner approach resumes. |
+| A third pillar on one straight | Ignored until the corner (live view: CORNER NEXT - NO NEW PILLAR). |
+| Only one pillar on a straight | 3.6 s after it, the second slot is filled and the corner takes priority (`SECOND_PILLAR_SLOT_TIMEOUT_SECONDS`). |
+| Candidate pillar not confirmed | Back to FOLLOW_STRAIGHT after 1.2 s. |
 | Pillar beyond the corner seen right after a pass | The corner is taken first (§2). |
-| Front within 10 cm | A short reverse, then a fresh check for a pillar, a corner or a clear front before moving on (§3). |
-| Repeated releases at one corner | After the third, a longer reverse at speed 55 for up to 0.8 s, aiming for 70 cm of clearance. |
-| Turn not finished in 5 s | Retry with the other turn mode (forward or reverse), up to 3 retries. |
-| 12th corner | COMPLETE: the car brakes and stays stopped. |
+| A side wall close during a pillar pass | A correction away from it from 18 cm, with fixed critical and emergency steers at 10 and 6 cm (§10). |
+| Front at 5 cm | A short reverse, then a fresh check for a pillar, a corner or a clear front before moving on (§3). |
+| Reverse blocked during a turn | The turn continues as a forward arc. |
+| Both side walls too close for a corner reverse | FAULT (§3). |
+| Twelfth corner | Hand-over to the parking module (§8). |
 
 ## 6. Known limits
 
 - The driving direction is locked at the start and does not change during the run.
-- The last-resort front trigger (`PYTHON_EMERGENCY_RELEASE_CM = 10`) is inside the TF-Luna's blind zone: its specified range starts at 0.2 m (vendor). Corners are normally handled from 45 cm, so this trigger only acts after a misjudgement.
-- Since the firmware stop was removed on 2026-09-10, the ESP32 always reports `hardStop = 0`, so the `hard_stop` checks in `main.py` never fire; some comments in `main.py` still describe an ESP32 stop at 18 cm.
-- With parking at the end off, PARKING_ENTRY_SEARCH and the PARKING_IN_ states are never reached. No transition leads into the PARKING_EXIT_CW_RED_ and PARKING_EXIT_ANTI_GREEN_ states.
+- The last-resort front trigger (`PYTHON_EMERGENCY_RELEASE_CM = 5`) is inside the TF-Luna's blind zone: its specified range starts at 0.2 m (vendor). Corners are normally handled from 105 cm, so this trigger only acts after a misjudgement.
+- The ESP32 always reports `hardStop = 0` ([vehicle §7](apac_2026_vehicle.md)), so the `hard_stop` checks in `main.py` never fire.
 - FAULT stops the car for the rest of the run.
-- After the twelfth corner `main.py` hands over to the parking module its switches select; `main.py` stops with an error if both or neither are on (§8).
-- Both parking modules end the entry when the front TF-Luna reads 5 cm or less (`ENTRY_STOP_FRONT_CM = 5`), and `partial_parking.py` also uses limits of 6, 8 and 15 cm (`REVERSE_BLOCK_SEARCH_SIDE_STOP_CM`, `REPOSITION_SIDE_CLEARANCE_CM`, `REPOSITION_FRONT_CLEARANCE_CM`). All are inside the TF-Luna's blind zone: its specified range starts at 0.2 m (vendor).
+- After the twelfth corner `main.py` hands over to the parking module its switches select; it stops with an error if both or neither are on (§8).
+- Both parking modules end the entry when the front TF-Luna reads 5 cm or less (`ENTRY_STOP_FRONT_CM = 5`), and `partial_parking.py` also uses limits of 6, 8 and 15 cm (`REVERSE_BLOCK_SEARCH_SIDE_STOP_CM`, `REPOSITION_SIDE_CLEARANCE_CM`, `REPOSITION_FRONT_CLEARANCE_CM`). All are inside the TF-Luna's blind zone.
 - In `parallel_parking.py`, FINAL_REVERSE, FINAL_BRAKE and FINAL_FORWARD are defined, but no transition leads into FINAL_REVERSE, so none of the three is reached; PARALLEL_ALIGN ends the parking in COMPLETE.
 - The docstrings of `parallel_parking.py` say its detector does not use the blocks' colour; the code (`ParkingGeometryDetector.extract`) keeps only magenta pixels.
 
@@ -136,9 +151,9 @@ The metrics that exist, and how the next ones are collected.
 
 - **Run results, 15–22 September** (the car's own logs, [APAC 2026 test logs](apac_2026_test_logs.md)): 27 runs from the parking lot reached the twelfth corner, 22 of them on 18–20 September in a median of 176 s (fastest 154 s); `parallel_parking.py` parked in 15 of 32 attempts on 20 September.
 - **Detector, per frame.** The live view shows the tracked pillar's confidence, hits out of 5, bottom position and area band (§9); in the two captured frames of 2026-09-12 the track had 5 of 5 hits at confidence 0.92 and 0.86.
-- **Nationals stack.** The test levels T1-T7 in [tests.md](tests.md) (data integrity, model evaluation, operating-point sweep, deploy parity, on-target latency, firmware bench, track), with what was run and what was not, and the track recordings in `other/test-runs-2026-08-08` and `other/test-runs-2026-08-09`.
 - **APAC bench, 2026-09-21.** Drive and power measurements in [vehicle §3 and §5](apac_2026_vehicle.md): free-running and stall currents, 422 rpm at the rear wheel, 0.89 m/s over 3 m from a standing start, the current of each supply branch.
 - **Run logs.** `main.py` can log every run: with `ENABLE_RUN_CSV_LOGGING = True` (committed as `False`) it writes `run_logs/round2_run_<date_time>.csv` beside itself, one row per telemetry sample and one per event, with lap, corner count, pillars this straight, state, heading and target, the three distances, the command sent and applied, the tracked pillar with its band, and the tape depths. Those files give corners completed, pillars passed, recoveries and faults per run; the 260 runs logged from 15 to 23 September are summarised in [APAC 2026 test logs](apac_2026_test_logs.md). For parking, `parallel_parking.py` with `ENABLE_RUN_LOGGING = True` (committed as `False`) writes a CSV and an annotated video per attempt (§8).
+
 ## 8. Parking modules
 
 Two files beside `main.py` park the car at the end of the run. After the twelfth corner `main.py` enters PARKING_PARALLEL_HANDOFF and calls the one its switches select (`PARTIAL_PARKING = True` and `PARALLEL_PARKING = False` as committed; exactly one must be on). Each can also run on its own, and each imports `main.py` for the camera, the serial link, telemetry, the live view and the shutdown. At the hand-over `main.py` first registers itself as the module `main` (`sys.modules`), so the parking module reuses the camera, serial port and telemetry already running ("give the standalone parking module the same initialized camera, serial port, telemetry, and safety API"). Constants named in this section are in the parking files.
@@ -208,21 +223,21 @@ Every FAULT prints its reason and holds the brake.
 
 ## 9. Pillar and line detection
 
-What `UnifiedPillarDetector` does with each 1280 × 720 frame, and why. Constants are in `main.py` (the current file; v0.4.0 values in brackets where they differ); the two figures at the end show the result on the mat.
+What `UnifiedPillarDetector` does with each 1280 × 720 frame, and why. Constants are in `main.py`; the two figures at the end show the result on the mat.
 
 1. **Image preparation.** The frame is stretched (`CONTRAST = 3.0`, `BRIGHTNESS = 0`) and gamma-corrected (`GAMMA = 0.7`), then converted to Lab; CLAHE (clip 2.0, 8 × 8 tiles) evens out the lightness channel. Lab keeps lightness apart from the two colour axes, so red (high a) and green (low a) separate with L left open, and a brighter or darker hall mostly moves L ([vehicle §4](apac_2026_vehicle.md)). The venue's thresholds come from one practice round with `lab-calibration.py`.
-2. **Side masks.** Before detection a strip at each side of the frame is set to neutral grey (128, outside every Lab range) without moving pixel coordinates (`asymmetric_camera_view`): 16 % of the width on each side on a straight (`CAMERA_SIDE_MASK_FRACTION`). After a corner the two sides are masked separately, depending on the turn direction (`post_turn_view_fractions`, `POST_CORNER_VIEW_SIDE_FRACTION = 0.20`), until the new straight is established: 1.5 s of forward driving, or 12 s. Not in v0.4.0.
+2. **Side masks.** Before detection a strip at each side of the frame is set to neutral grey (128, outside every Lab range) without moving pixel coordinates (`asymmetric_camera_view`): 16 % of the width on each side on a straight (`CAMERA_SIDE_MASK_FRACTION`). After a corner the two sides are masked separately, depending on the turn direction (`post_turn_view_fractions`, `POST_CORNER_VIEW_SIDE_FRACTION = 0.20`), until the new straight is established: 1.5 s of forward driving, or 12 s.
 3. **Colour masks.** One Lab range per colour (`COLOR_RANGES`, as committed): red a at least 184 and b at least 108; green a at most 101; blue a 153 to 186 and b at most 90; orange a at least 130 and b at least 150; L unconstrained. Each mask is opened once and closed twice with a 3 × 3 kernel, and the top third of the image is cleared (`DETECTOR_ROI_TOP_RATIO`): from the 24.8 cm mount that third lies above the tops of the walls out to about 3 m ([vehicle §4](apac_2026_vehicle.md)), so it holds only the hall.
 4. **Candidate shapes.** Each contour is tested by size and shape. Pillars (red, green): area at least 0.045 % of the frame and height at least 2.5 % of the frame height; height to width 0.65 to 8 (a 50 × 50 × 100 mm sign is about twice as tall as wide; the range allows partial views and perspective); rectangularity at least 0.35 and solidity at least 0.60, since a pillar is a solid rectangle and tape edges and reflections are not. Tape lines (blue, orange): area at least 0.03 %, height at least 1 %, height to width 0.2 to 10, rectangularity at least 0.25, solidity at least 0.50. Confidence = 0.20 × area + 0.20 × height + 0.25 × rectangularity + 0.35 × solidity, with area and height capped at 5 × the minimum area and 25 % of the frame height; candidates under 0.45 are dropped (`DETECTOR_MIN_CONFIDENCE`).
-5. **Tape lines and the corner reference.** The mat's blue and orange lines mark the approach to a corner. They are found in HSV (blue hue 95-135, orange hue 3-22) below the top third, with the same morphology; a line must cover 0.025 % of the frame, span 10 % of its width and be at least twice as wide as tall. The lowest line's mid-height is its depth; when both colours are visible, the deeper of the two is the corner reference (the magenta line in the live view). The current file also confirms a corner from the black walls: in HSV (value at most 70), a broad black end wall with an opening on the turn side, confirmed in 3 of the last 4 frames (`BLACK_CORNER_*`).
+5. **Tape lines and the corner reference.** The mat's blue and orange lines mark the approach to a corner. They are found in HSV (blue hue 95-135, orange hue 3-22) below the top third, with the same morphology; a line must cover 0.025 % of the frame, span 10 % of its width and be at least twice as wide as tall. The lowest line's mid-height is its depth; when both colours are visible, the deeper of the two is the corner reference (the magenta line in the live view). The code also confirms a corner from the black walls: in HSV (value at most 70), a broad black end wall with an opening on the turn side, confirmed in 3 of the last 4 frames (`BLACK_CORNER_*`).
 6. **Which pillar counts.** With the corner reference visible (and not suppressed for 3 s after a turn, `POST_TURN_TAPE_IGNORE_GRACE_SECONDS`), a pillar whose centre is above the reference, farther away than the tape, is ignored when it is entirely above it or sits in an outer column of the 5 × 5 grid: it stands beyond the corner or in a side lane (IGNORE CORNER in the live view). Two rules keep the car from dropping the obstacle in front of it: the track the controller is already passing keeps priority even when tape moves in front of it (FRONT PRIORITY), and when a larger, lower interior pillar and a smaller outer pillar are both beyond the reference, the interior pillar stays actionable if it is 1.25 × larger (`CORNER_FOREGROUND_AREA_ADVANTAGE`). A small ignored pillar never suppresses a valid foreground pillar.
 7. **Tracking.** One pillar is tracked at a time. A new track starts on the best candidate by 0.55 × bottom + 0.35 × confidence + 0.10 × area: the lowest in the image is the nearest. Each frame the track is matched to a same-colour candidate by centre distance (at most 0.25 of the frame) or overlap (IoU at least 0.05), and its position is smoothed (0.65 new, 0.35 old). A track is confirmed after 3 hits in its last 5 frames (`DETECTOR_CONFIRMATION_HITS`, `DETECTOR_TRACK_HISTORY`); an unconfirmed track is dropped after 2 misses (`DETECTOR_UNCONFIRMED_MISSES`); a confirmed track stays locked until the controller records the pass, so a brief occlusion cannot switch the target. Confidence is 0.75 × the detection's confidence + 0.25 × hits/5, and decays by 10 % per missed frame.
-8. **Two pillars per straight** (current file). At most two pillars are taken on each straight (`MAX_PILLARS_PER_STRAIGHT = 2`); once both are passed, no new pillar is taken until the corner (live view: CORNER NEXT - NO NEW PILLAR). If no second pillar has come 3.6 s after the first, slot 2 is filled and the corner takes priority (`SECOND_PILLAR_SLOT_TIMEOUT_SECONDS`). One high track in the next lane is deferred rather than its whole colour suppressed, and right after a turn nearby pillars take priority (`defer_background_candidate`). A wide, low rectangle, at least twice as wide as tall, is treated as a parking-lot limitation, not a pillar; in laps 1 and 2 the car steers gently around it (speed 60, steering 15).
-9. **Range and control.** The pillar's distance band comes from its area: far under 3,200 px×px (4,000), near under 7,000, close under 20,000, otherwise too close; the 1280 × 720 breakpoints are kept as ratios of the frame (`PILLAR_AREA_NEAR_RATIO`, `PILLAR_AREA_CLOSE_RATIO`, `PILLAR_AREA_TOO_CLOSE_RATIO`). Each band selects a speed, gain and steering limit (`PILLAR_DISTANCE_PROFILES`; far: speed 100, gain 0.70, 3 to 12 of steer (5 to 18); too close: speed 80, gain 1.50, 38 to 52). The controller steers the pillar to a target column, red to 38 % of the width (25 %) so the car passes on its right and green to 62 % so it passes on its left (`PILLAR_RED_TARGET_X`, `PILLAR_GREEN_TARGET_X`), with gain 200 (`PILLAR_LATERAL_KP`), at most 40 of correction and smoothing 0.65.
+8. **Two pillars per straight**. At most two pillars are taken on each straight (`MAX_PILLARS_PER_STRAIGHT = 2`); once both are passed, no new pillar is taken until the corner (live view: CORNER NEXT - NO NEW PILLAR). If no second pillar has come 3.6 s after the first, slot 2 is filled and the corner takes priority (`SECOND_PILLAR_SLOT_TIMEOUT_SECONDS`). One high track in the next lane is deferred rather than its whole colour suppressed, and right after a turn nearby pillars take priority (`defer_background_candidate`). A wide, low rectangle, at least twice as wide as tall, is treated as a parking-lot limitation, not a pillar; in laps 1 and 2 the car steers gently around it (speed 60, steering 15).
+9. **Range and control.** The pillar's distance band comes from its area: far under 3,200 px×px, near under 7,000, close under 20,000, otherwise too close; the 1280 × 720 breakpoints are kept as ratios of the frame (`PILLAR_AREA_NEAR_RATIO`, `PILLAR_AREA_CLOSE_RATIO`, `PILLAR_AREA_TOO_CLOSE_RATIO`). Each band selects a speed, gain and steering limit (`PILLAR_DISTANCE_PROFILES`; far: speed 100, gain 0.70, 3 to 12 of steer; too close: speed 80, gain 1.50, 38 to 52). The controller steers the pillar to a target column, red to 38 % of the width so the car passes on its right and green to 62 % so it passes on its left (`PILLAR_RED_TARGET_X`, `PILLAR_GREEN_TARGET_X`), with gain 200 (`PILLAR_LATERAL_KP`), at most 40 of correction and smoothing 0.65.
 
-**The live view** (`annotate`): the cyan line is the top of the search area; the grey grid is the 5 × 5 columns and rows; blue and orange boxes are tape lines; the magenta line is the corner reference; thin boxes are candidates; a magenta box is a pillar ignored as beyond the corner (`IGNORE CORNER Cn`, n = grid column); a yellow box marks the pillar being passed (`FRONT PRIORITY`); the tracked pillar's box is yellow once confirmed and cyan before, labelled `TRACK id COLOUR conf hits/5 bottom area BAND`, with a vertical line at its target column; the text lines give the state, heading and steer, and the three TF-Luna readings in cm. The current file adds PILLAR SLOTS n/2, CORNER NEXT - NO NEW PILLAR, SLOT 2 TIMEOUT IN n s, BLACK CORNER and VIEW MASK L=n% R=n%.
+**The live view** (`annotate`): the cyan line is the top of the search area; the grey grid is the 5 × 5 columns and rows; blue and orange boxes are tape lines; the magenta line is the corner reference; thin boxes are candidates; a magenta box is a pillar ignored as beyond the corner (`IGNORE CORNER Cn`, n = grid column); a yellow box marks the pillar being passed (`FRONT PRIORITY`); the tracked pillar's box is yellow once confirmed and cyan before, labelled `TRACK id COLOUR conf hits/5 bottom area BAND`, with a vertical line at its target column; the text lines give the state, heading and steer, and the three TF-Luna readings in cm. The live view also shows PILLAR SLOTS n/2, CORNER NEXT - NO NEW PILLAR, SLOT 2 TIMEOUT IN n s, BLACK CORNER and VIEW MASK L=n% R=n%.
 
-Two frames captured during testing on 2026-09-12 with an earlier version: the overlay is that of v0.4.0's `annotate`, and the areas fall in v0.4.0's bands.
+Two frames from testing on 12 September.
 
 ![Passing a red pillar: state PASS_RED_RIGHT, track 18 at confidence 0.92](img/live-view-2026-09-12-pass-red-right.png)
 
@@ -232,36 +247,14 @@ Passing a red pillar: state PASS_RED_RIGHT, steer +17.3 at heading 100.0; TF-Lun
 
 A run that ended in FAULT: a red pillar 5 cm from the centre TF-Luna (L 99, C 5, R 56 cm), track 1 at confidence 0.86, bottom 1.00, area 0.0232, band too close; both tape lines are visible and the magenta corner reference is drawn. The fault reason is printed to the terminal, not to the view, and was not captured.
 
-## 10. What the current main.py changes
+## 10. Staying off the walls
 
-The file now in the repository, from the coach's working copy of 23 September 2026, has 5,685 lines against 4,771 in v0.4.0. This section lists what changed, from the code; where the code gives a reason in a comment or docstring, it is quoted or paraphrased. The team removed the side rollers after the wall work ([vehicle §7](apac_2026_vehicle.md)).
+Four mechanisms keep the car in the middle of its lane; with them the side rollers were no longer needed ([vehicle §7](apac_2026_vehicle.md)).
 
-**Walls.** Four mechanisms keep the car off the walls:
-
-- PILLAR_RECENTER follows every pillar pass. It counter-steers 22° against the pass for 0.18 to 0.45 s and moves on once the heading has swung back past straight, "proof it actually cancelled the drift, not just a timer"; it then settles onto the lane centre from the heading and both side TF-Lunas (both walls 8 to 110 cm away, heading within 10°, gain 0.5, at most 18 of steer, 3 confirmations).
-- During a pillar pass, a side wall closer than 18 cm (`PILLAR_WALL_WARNING_CM`) adds a correction away from it that grows to 35 at 6 cm; at 10 cm a fixed critical steer takes over, and at 6 cm an emergency steer at speed 65.
-- After a corner a side-distance correction recentres the car (`ROUND2_RECENTER_*`: gain 0.45, at most 14, heading within 8°).
-- CORNER_CLEARANCE_RECOVERY reverses (speed 150, at most 0.4 s) until the front has 30 cm of clearance and re-checks the corner while stopped; it ends in FAULT if both side walls are too close for a corner reverse, or if the ESP32 does not report the reverse as applied. `TURN_SIDE_CLEARANCE_CM` is 20 (501 in v0.4.0, which carried 20 as a comment); the v0.4.0 side nudge is gone.
-
-**Corners.** The corner approach is entered after three fresh front readings of 105 cm or less ("Enter the real corner approach after three fresh geometry samples", `CORNER_ZONE_LOCK_*`); after a corner the recognisers stay disarmed until the centre sensor sees a clearly open straight (130 cm, 3 samples), while the camera keeps detecting pillars. The black-wall check of §9 is a second corner cue. New states: PRE_TURN_BACKUP (0.28 s back at speed 88 before a turn) and POST_TURN_SCAN_HOLD, a stop after the post-turn reverse "so several stationary frames can prove a nearby pillar". The post-turn reverse is 0.35 s at speed 150 with steering 70 (2.8 s in v0.4.0).
-
-**Pillars.** Two per straight with the slot-2 timeout, the side masks and the parking-lot rule (§9). Faster than v0.4.0: approach 120, pass 120 (100), release 100 (50). The red target column is at 38 % of the width (25 %) and the near band starts at 3,200 px×px (4,000).
-
-**Parking.** After the twelfth corner the state PARKING_PARALLEL_HANDOFF calls the parking module the switches select (§8). Leaving the parking area at the start adds a 4.5 s PARKING_EXIT_REVERSE_VIEW phase and a forward heading alignment (`PARKING_EXIT_FORWARD_ALIGN_*`).
-
-**Run log.** `RunCsvLogger` can write every run to `run_logs/round2_run_<date_time>.csv`; it is off as committed (`ENABLE_RUN_CSV_LOGGING = False`, §7). `DEBUG = True`.
-
-**Values in §1-§6 that no longer hold:**
-
-| § | v0.4.0 | Current |
-|---|---|---|
-| 1 | drive speed 210 | 215 |
-| 1, 5, 6 | COMPLETE after the twelfth corner; parking at the end off | hand-over to a parking module after the twelfth corner |
-| 3, 5, 6 | last-resort front trigger 10 cm (`PYTHON_EMERGENCY_RELEASE_CM`) | 5 cm, deeper inside the TF-Luna's specified 0.2 m minimum |
-| 4 | post-turn reverse 2.8 s | 0.35 s at speed 150, after a 0.28 s reverse before the turn |
-| 5 | same pillar ignored for 0.6 s after a pass (`PILLAR_REACQUIRE_COOLDOWN_SECONDS`) | removed; two pillars per straight instead |
-| 3 | corner reverse at speed 70 for at most 0.8 s; deep recovery at speed 55 | 200 for at most 0.5 s; 75 |
-| 2 | obstacle corner confirmed on 5 samples in 0.30 s within 8° | 3 samples in 0.25 s within 12° |
+- **PILLAR_RECENTER**, after every pillar pass, counter-steers 22° against the pass for 0.18 to 0.45 s and moves on once the heading has swung back past straight, "proof it actually cancelled the drift, not just a timer"; it then settles onto the lane centre from the heading and both side TF-Lunas (both walls 8 to 110 cm away, heading within 10°, gain 0.5, at most 18 of steer, 3 confirmations).
+- **A wall guard during pillar passes**: a side wall closer than 18 cm (`PILLAR_WALL_WARNING_CM`) adds a correction away from it that grows to 35 at 6 cm; at 10 cm a fixed critical steer takes over, and at 6 cm an emergency steer at speed 65.
+- **Recentering after corners**: a side-distance correction (`ROUND2_RECENTER_*`: gain 0.45, at most 14, heading within 8°).
+- **CORNER_CLEARANCE_RECOVERY** (§4), with the side-clearance check before a corner reverse (`TURN_SIDE_CLEARANCE_CM = 20`).
 
 ## 11. Open Challenge firmware
 

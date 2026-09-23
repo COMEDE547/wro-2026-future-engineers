@@ -1,24 +1,24 @@
 # APAC 2026 vehicle — changes since Nationals
 
-**Status 2026-09-22.** After the WRO India National Championship (26–28 Aug 2026) the vehicle was rebuilt for APAC 2026. This page records what changed and why. Every figure is marked by its basis: *measured* on the vehicle, *team* figure not yet measured, *derived* by calculation from named inputs, or *vendor* specification. Documents 1–5 remain the record of the Nationals configuration.
+**Scope.** The vehicle that competes at WRO Future Engineers APAC 2026, built after the India National Championship (26–28 Aug 2026): what changed and why. Every figure is marked by its basis: *measured* on the vehicle, *team* figure not yet measured, *derived* by calculation from named inputs, or *vendor* specification. Documents 1–5 remain the record of the Nationals configuration.
 
 ## 1. Specification
 
 | | Nationals (Aug 2026) | APAC 2026 (Sep 2026) | Basis |
 |---|---|---|---|
 | Length × width × height | length 23.0 cm | 19.1 × 14.3 × 27.2 cm (±0.5 cm) | measured |
-| Mass | 785 g | 862 g race-ready, Raspberry Pi 5 included (2026-09-16); not re-weighed after the side rollers were removed (§7) | measured |
+| Mass | 785 g | 862 g race-ready, Raspberry Pi 5 included (measured 2026-09-16) | measured |
 | Axle loads | — | front 201 g, rear 661 g (23 % / 77 %) — see §2 | measured |
 | Chassis | LEGO Technic space-frame, 69-step build | LEGO Technic frame, 84-step build ([instructions](../models/chassis/chassis_build_instructions_apac_2026-09.pdf)); 332 g bare | build file; measured |
 | Printed parts | TF-Luna holders, servo horn beam, motor clamp ([`models/`](../models/)) | the same STL files | team |
 | Steering | single-servo Ackermann (MG90S) | non-Ackermann: an MG90 servo drives a vertical steering column that turns the front axle, 60° each side | team |
 | Wheelbase | — | 13 cm | team |
-| Wheels | front 41 mm, rear 55.6 mm | front 45 mm, rear 55 mm (rear tyres chosen for grip). Two 30 mm horizontal side rollers were fitted in the rebuild (build steps 71–76) and have since been removed — see §7 | team |
+| Wheels | front 41 mm, rear 55.6 mm | front 45 mm, rear 55 mm (rear tyres chosen for grip) | team |
 | Drive motor | N20 gearmotor, 12 V, 600 rpm, via TB6612FNG | MEX motor (Avishkaar), rated 6 V, 400 rpm, via TB6612FNG — see §3 | team |
 | Gearing | 20T pinion → 28T crown on a LEGO differential (5:7) | unchanged | team |
 | Battery | 3S LiPo, 11.1 V, 2200 mAh | unchanged | team |
 | Power | pack → fast-charge module → Pi 5; pack → Buck-2 → 5 V rail (TF-Lunas, servo); TB6612FNG from the pack ([2 — Power & Sensors](2_power_and_sensors.md)) | unchanged, plus the WS2812 LEDs on the 5 V rail; power switch on the battery lead; start button on the rear beams | team |
-| Sensors | 3 × TF-Luna on a PCA9548A, BNO055, USB camera on a front arm at ~10 cm | same sensors; the camera (Lenovo 300 FHD) now sits on top of a rear tower — see §4 | photos; measured |
+| Sensors | 3 × TF-Luna on a PCA9548A, BNO055, USB camera on a front arm at ~10 cm | same sensors; the camera (Lenovo 300 FHD) sits on top of a rear tower — see §4 | photos; measured |
 | Lighting | none | 6 × WS2812 LEDs (three 2-LED strips) on the front frame — see §5 | team |
 
 Wiring: [`schemes/wiring_apac_2026.md`](../schemes/wiring_apac_2026.md). Photos: [`v-photos/apac-2026-09-22/`](../v-photos/apac-2026-09-22/) — six views, 2026-09-22.
@@ -58,7 +58,7 @@ The driven rear wheels carry 77 % of the weight, which helps traction. The steer
 ## 4. Camera placement
 
 - **Mount:** lens centre 24.8 ± 0.5 cm above the floor; optical axis 12° below horizontal (78° from straight down); the hinge is glued at that angle (measured).
-- **Field of view:** Lenovo lists a 95° diagonal field of view ([product page](https://store.lenovo.com/in/en/lenovo-300-fhd-webcam-gxc1b34793-387.html)), which is about 56° vertical and 87° horizontal at 16:9 (derived; not yet measured on this camera).
+- **Field of view:** Lenovo lists a 95° diagonal field of view ([product page](https://store.lenovo.com/in/en/lenovo-300-fhd-webcam-gxc1b34793-387.html)), which is about 56° vertical and 87° horizontal at 16:9 (derived; not measured on this camera).
 
 | Quantity | Formula | Value |
 |---|---|---|
@@ -69,7 +69,7 @@ The driven rear wheels carry 77 % of the weight, which helps traction. The steer
 
 h = lens height, α = pitch below horizontal, VFOV = vertical field of view, D = distance to the wall.
 
-**Why the camera went up.** Reading range from the image depends on how low a pillar's base sits (the Nationals rule, [2 — Power & Sensors §3](2_power_and_sensors.md)). Raising the lens from ~10 cm to 24.8 cm makes that signal about 2.2 times stronger (12.5° against 5.6° between pillars at 0.5 m and 1.0 m), and the centre of the image now lands ~1.2 m ahead instead of 0.33–0.57 m. The separation keeps growing with height up to h = √(Z_near · Z_far), 55 cm for pillars at 0.3 m and 1.0 m, so the earlier statement in §3 of that document, that a higher mount compresses it, was wrong; it is corrected there.
+**Why the camera went up.** Reading range from the image depends on how low a pillar's base sits (the Nationals rule, [2 — Power & Sensors §3](2_power_and_sensors.md)). Raising the lens from ~10 cm to 24.8 cm makes that signal about 2.2 times stronger (12.5° against 5.6° between pillars at 0.5 m and 1.0 m), and the centre of the image lands ~1.2 m ahead instead of 0.33–0.57 m. The separation keeps growing with height up to h = √(Z_near · Z_far), 55 cm for pillars at 0.3 m and 1.0 m, so the earlier statement in §3 of that document, that a higher mount compresses it, was wrong; it is corrected there.
 
 **What it costs.**
 
@@ -139,7 +139,7 @@ Each change as a decision: what it replaced, the reason the team gives, the evid
 | Firmware front stop removed (2026-09-10) | a stop under 18 cm on the front TF-Luna | stopping the drive motor ended a competition run | one run ended (team) | collisions are handled by the Pi's distance logic alone (§6) |
 | Parallel parking at the end (`parallel_parking.py`) | direct entry (`partial_parking.py`) | 15 points for a full parallel park against 7 (2026 rules, scoring element 1.8.2) | rules; logs: 15 of 32 `parallel_parking.py` attempts parked on 20 September, while the U-turn parking-in of 17 September reached COMPLETE in 0 of 24 ([test logs](apac_2026_test_logs.md) §3) | a longer manoeuvre beside the limitations; touching one ends the round (rule 9.24.7) |
 
-**The 2026-09-10 front-stop decision.** The firmware used to stop the drive motor when the front TF-Luna read under 18 cm (released at 24 cm) or when its reading went stale, and that stop ended a run. On 2026-09-10 `forwardHardStopIsActive()` was changed to return `false`, with the comment "Disabled: stopping the drive motor here ends a competition run". Collisions are now handled on the Pi: back away at speed 80 for 0.30 s, require at least 3 cm of progress, at most 2 attempts, release at 30 cm. The team kept the earlier versions as backups, which are not committed: `obstacle-challenge-final-code_withLED.ino.before-remove-front-brake-20260910.bak` (MD5 `a0f20dd94d2dce1a27c2fc72e3700922`) and `obstacle-challenge-final-code_withLED.ino.before-parking-override-20260910.bak` (MD5 `c93dd67690d2153980442369aa3df41d`). The same day added a `PARKING_OVERRIDE_ON` serial command to the firmware; `main.py` never sends it, so it has no effect in a run.
+**The front-stop decision.** The firmware used to stop the drive motor when the front TF-Luna read under 18 cm (released at 24 cm) or when its reading went stale, and that stop ended a run. On 2026-09-10 `forwardHardStopIsActive()` was changed to return `false`, with the comment "Disabled: stopping the drive motor here ends a competition run". Collisions are handled on the Pi: back away at speed 80 for 0.30 s, require at least 3 cm of progress, at most 2 attempts, release at 30 cm. The same day added a `PARKING_OVERRIDE_ON` serial command to the firmware; `main.py` never sends it, so it has no effect in a run.
 ## 8. ESP32 pin map
 
 From the Nationals firmware ([`round2_ino.ino`](../src/Round%202/round2_ino/round2_ino.ino)) and the 2026-09-20 wiring draft; only GPIO4 is new. Checked against the APAC firmware ([`src/apac-2026/`](../src/apac-2026/)) on 2026-09-21: it reads the centre TF-Luna on mux channel 3 (channel 1 at Nationals).

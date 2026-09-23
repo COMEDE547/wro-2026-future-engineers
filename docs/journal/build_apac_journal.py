@@ -108,7 +108,8 @@ img.diagram { display: block; max-width: 100%; max-height: 225mm; margin: 6px au
 img { max-width: 100%; }
 p img { display: block; max-height: 88mm; margin: 6px auto; border: 1px solid #ddd; }
 a { color: #1a4f8b; text-decoration: none; }
-.cover { text-align: left; } .cover .photo { width: 100%; max-height: 118mm; object-fit: cover; border-radius: 4px; margin: 10px 0; }
+.cover { text-align: left; }
+.coverimgs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; } .coverimgs figure { margin: 0; } .coverimgs img { width: 100%; height: 92mm; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; } .cover .photo { width: 100%; max-height: 118mm; object-fit: cover; border-radius: 4px; margin: 10px 0; }
 .meta td { border: none; padding: 2px 8px 2px 0; font-size: 9.6pt; } .meta td:first-child { color: #6b6b6b; width: 32mm; }
 .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 8px 0; }
 .grid figure { margin: 0; page-break-inside: avoid; } .grid img { width: 100%; height: 44mm; object-fit: cover; border: 1px solid #ddd; }
@@ -116,31 +117,31 @@ figcaption { font-size: 7.8pt; color: #555; text-align: center; }
 .kv td:first-child { width: 34mm; font-weight: 600; }
 .note { font-size: 8.4pt; color: #555; }
 """
-BAND = '<div class="band">TEAM TED DRIVE &nbsp;|&nbsp; WRO FUTURE ENGINEERS 2026 &nbsp;|&nbsp; ENGINEERING JOURNAL, APAC EDITION</div>'
+BAND = '<div class="band">TEAM TED DRIVE &nbsp;|&nbsp; WRO FUTURE ENGINEERS 2026 &nbsp;|&nbsp; ENGINEERING JOURNAL</div>'
 cover = """
 <div class="cover">%s
 <div style="font-size:9pt;color:#c0392b;letter-spacing:.12em;margin-top:16px">WRO FUTURE ENGINEERS 2026 &middot; APAC</div>
 <h1>Engineering Journal</h1>
-<div style="font-size:13pt;color:#444">APAC 2026 edition (rev 5) &middot; Team TED Drive</div>
-<img class="photo" src="%s">
+<div style="font-size:13pt;color:#444">Team TED Drive &middot; WRO Future Engineers APAC 2026</div>
+<div class="coverimgs"><figure><img src="%s"><figcaption>The team</figcaption></figure><figure><img src="%s"><figcaption>The vehicle</figcaption></figure></div>
 <table class="meta">
 <tr><td>Team</td><td>Ethan Fernandes (software) &middot; Tejas Sirikonda (mechanical) &middot; Deeyan Mehta (electronics)</td></tr>
 <tr><td>Coach</td><td>Amey Chavan (OMOTEC)</td></tr>
 <tr><td>Competition</td><td>WRO Future Engineers 2026, APAC, Hyderabad, September 2026</td></tr>
-<tr><td>Repository</td><td><a href="https://github.com/teddriveomo/wro-2026-future-engineers">github.com/teddriveomo/wro-2026-future-engineers</a> (release 0.5.0 and later)</td></tr>
-<tr><td>Prepared</td><td>23 September 2026, against WRO 2026 General Rules, Appendix C</td></tr>
+<tr><td>Repository</td><td><a href="https://github.com/teddriveomo/wro-2026-future-engineers">github.com/teddriveomo/wro-2026-future-engineers</a></td></tr>
+<tr><td>Structure</td><td>WRO 2026 General Rules, Appendix C: sections 02 to 06 follow its five criteria</td></tr>
 </table>
-<p class="note">This journal describes the vehicle rebuilt for APAC, shown above, and is generated from the repository's own documents, so the journal and the repository say the same thing. The India Nationals journal (rev 3, 24 August 2026), which describes the first vehicle, is a separate file in the repository: <code>docs/engineering_journal_final.pdf</code>.</p>
-</div>""" % (BAND, (ROOT / 'v-photos/apac-2026-09-22/apac-left.jpg').as_uri())
+<p class="note">The repository holds the code, the measurements, the car's run logs and the documents this journal is built from, so the two always say the same thing.</p>
+</div>""" % (BAND, (ROOT / 't-photos/team_photo_official.jpg').as_uri(), (ROOT / 'v-photos/apac-2026-09-22/apac-left.jpg').as_uri())
 
 snapshot = """<section>%s<h2><span class="n">01</span>Snapshot</h2><p class="lede">The APAC vehicle in one page; every figure is from this journal and the repository.</p>
 <table class="kv">
-<tr><td>Vehicle</td><td>Rebuilt in September 2026: a new 84-step LEGO Technic frame (332 g bare), a steering column that turns the whole front axle 60&deg; each way, the camera on a 24.8 cm tower pointing 12&deg; down, six WS2812 LEDs on the front frame. The horizontal side rollers of the rebuild were removed on 22 September.</td></tr>
-<tr><td>Mass</td><td>862 g race-ready with the Raspberry Pi 5 (measured 16 September, before the rollers came off).</td></tr>
+<tr><td>Vehicle</td><td>An 84-step LEGO Technic frame (332 g bare), a steering column that turns the whole front axle 60&deg; each way, the camera on a 24.8 cm tower pointing 12&deg; down, six WS2812 LEDs on the front frame.</td></tr>
+<tr><td>Mass</td><td>862 g race-ready with the Raspberry Pi 5 (measured 16 September).</td></tr>
 <tr><td>Drive</td><td>MEX 6 V motor through a TB6612FNG driver to the rear wheels: 422 rpm free-running at the wheel and 0.89 m/s average over 3 m from a standing start (measured 21 September).</td></tr>
 <tr><td>Power</td><td>3S 2200 mAh pack: 1.34 A idle, 1.93-2.02 A driving, 2.77 A worst case (each branch measured, 21 September).</td></tr>
 <tr><td>Compute</td><td>Raspberry Pi 5 (camera, detection, decisions) and ESP32 (drive motor, servo, three TF-Luna, LEDs), linked by USB serial.</td></tr>
-<tr><td>Software</td><td><code>main.py</code> (the coach's working copy, 23 September): Lab-colour pillar detection with tape-line and black-wall corner cues, a state machine that recentres between the walls after every pillar and corner and steers off a side wall during pillar passes, two pillars per straight, and a hand-over to a parking module after the twelfth corner (<code>partial_parking.py</code> as committed; <code>parallel_parking.py</code> is one switch away).</td></tr>
+<tr><td>Software</td><td><code>main.py</code>: Lab-colour pillar detection with tape-line and black-wall corner cues, a state machine that recentres between the walls after every pillar and corner and steers off a side wall during pillar passes, two pillars per straight, and a hand-over to a parking module after the twelfth corner (&sect;04).</td></tr>
 <tr><td>Open Challenge</td><td><code>open-challenge.ino</code> on the ESP32 alone: direction detection, wall following at 30 cm with heading hold, twelve 90&deg; turns on the BNO055 heading, and a stop 150 cm from the wall ahead (&sect;04).</td></tr>
 <tr><td>Evidence</td><td>The car's own logs: 27 runs from the parking lot reached the twelfth corner, the fastest in 154 s; <code>parallel_parking.py</code> parked in 15 of 32 attempts (&sect;07). Bench measurements of drive, power and camera geometry (&sect;02, &sect;03); detection shown on the mat (&sect;04); code stored byte-for-byte with MD5 checksums (&sect;06).</td></tr>
 </table>
@@ -166,7 +167,7 @@ ch6 = chapter('06', 'Reproducibility', 'How to rebuild and run the software exac
 
 ch7 = chapter('07', 'Validation', "What the car's own logs show, 15 to 22 September (criteria 3 and 4).", render(thead) + ''.join(sub(tt, b) for tt, b in tsec))
 
-doc = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>TED Drive - WRO FE 2026 Engineering Journal (APAC edition)</title>
+doc = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>TED Drive - WRO Future Engineers 2026 Engineering Journal</title>
 <style>%s</style>
 </head><body>%s%s%s%s%s%s%s%s</body></html>""" % (CSS, cover, snapshot, ch2, ch3, ch4, ch5, ch6, ch7)
 page = WORK / 'journal_apac.html'; page.write_text(doc, encoding='utf-8')
@@ -184,7 +185,7 @@ print('part I pages', n1, '| near-empty pages without images:', leftover or 'non
 for i, pg in enumerate(p1):
     if i == 0: continue
     r = pg.rect
-    pg.insert_text((r.width / 2 - 150, r.height - 22), 'TED Drive \u00b7 WRO FE 2026 Engineering Journal, APAC edition \u00b7 %d / %d' % (i + 1, n1), fontsize=7, color=(0.45, 0.45, 0.45))
+    pg.insert_text((r.width / 2 - 150, r.height - 22), 'TED Drive \u00b7 WRO FE 2026 Engineering Journal, \u00b7 %d / %d' % (i + 1, n1), fontsize=7, color=(0.45, 0.45, 0.45))
 out = fitz.open(); out.insert_pdf(p1)
 def first(pat):
     pat = r'\s+'.join(pat.split(' '))
@@ -195,7 +196,7 @@ toc = [[1, 'Cover', 1], [2, '01 Snapshot', first('The APAC vehicle in one page')
        [2, '03 Power and sensing', first('What powers the car')], [2, '04 Software and obstacle strategy', first('How main.py drives the Obstacle')],
        [2, '05 Engineering decisions', first('Each change as a decision')], [2, '06 Reproducibility', first('How to rebuild and run')], [2, '07 Validation', first("What the car's own logs show")]]
 out.set_toc(toc)
-out.set_metadata({'title': 'TED Drive - WRO FE 2026 Engineering Journal (APAC 2026 edition, rev 5)', 'author': 'Team TED Drive',
+out.set_metadata({'title': 'TED Drive - WRO Future Engineers 2026 Engineering Journal', 'author': 'Team TED Drive',
                   'subject': 'WRO Future Engineers 2026, APAC', 'creator': 'docs/journal/build_apac_journal.py'})
 out.save(str(OUT), garbage=3, deflate=True)
 print('wrote', OUT, 'pages', out.page_count, 'bytes', OUT.stat().st_size, '| toc', [(t[1], t[2]) for t in toc])
