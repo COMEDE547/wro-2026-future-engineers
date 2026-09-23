@@ -61,6 +61,7 @@ At those speeds three laps plus parking took longer than a three-minute round.
 
 | Challenge | Video | Run |
 |---|---|---|
-| Obstacle Challenge | [`video/apac-2026-obstacle-run.mp4`](../video/apac-2026-obstacle-run.mp4), 3 min 19 s | The APAC vehicle, about 20 September: from the parking lot, three laps (12 corners), then a stop after the twelfth corner |
-| Open Challenge | [youtu.be/PbOQJ54wr-0](https://youtu.be/PbOQJ54wr-0), 33 s | India National Championship, August 2026 (the first vehicle) |
-| Obstacle Challenge | [youtu.be/dBjqMQ-jRBA](https://youtu.be/dBjqMQ-jRBA), 100 s | India National Championship, August 2026 (the first vehicle) |
+| Open Challenge | [youtu.be/PbOQJ54wr-0](https://youtu.be/PbOQJ54wr-0), 33 s | India National Championship, August 2026 (first vehicle) |
+| Obstacle Challenge | [youtu.be/dBjqMQ-jRBA](https://youtu.be/dBjqMQ-jRBA), 100 s | India National Championship, August 2026 (first vehicle) |
+
+Additional footage: [`video/apac-2026-obstacle-run.mp4`](../video/apac-2026-obstacle-run.mp4), 3 min 19 s, shows the APAC vehicle on the practice mat, about 20 September: from the parking lot, three laps (12 corners), then a stop after the twelfth corner.
