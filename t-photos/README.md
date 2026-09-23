@@ -8,5 +8,5 @@ The official/informal pair is a convention from the WRO repository template
 rather than a rule. The informal photo is
 `team_photo_informal.jpg`: the three members at the practice field.
 
-Roster: Ethan Fernandes · Tejas Sirikonda · Diaan. Coach: Amey Chavan (18+, as
+Roster: Ethan Fernandes · Tejas Sirikonda · Deeyan Mehta. Coach: Amey Chavan (18+, as
 required for an international event by §2.6).

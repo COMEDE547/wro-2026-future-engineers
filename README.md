@@ -3,7 +3,7 @@
 Engineering documentation for an autonomous vehicle built for the **World Robot
 Olympiad Future Engineers** category, season **2026**.
 
-> **Team:** TED drive · **Members:** Ethan Fernandes (software) · Tejas Sirikonda (mechanical) · Diaan (electronics) · **Coach:** Amey Chavan (OMOTEC) · **Country:** India
+> **Team:** TED drive · **Members:** Ethan Fernandes (software) · Tejas Sirikonda (mechanical) · Deeyan Mehta (electronics) · **Coach:** Amey Chavan (OMOTEC) · **Country:** India
 
 > **Vehicle status (2026-09-22):** the car was rebuilt in September for APAC 2026; what changed is in [`docs/apac_2026_vehicle.md`](docs/apac_2026_vehicle.md), and the code it runs is in [`src/apac-2026/`](src/apac-2026/). The At-a-glance table and documents 1–5 below describe the Nationals (August 2026) configuration.
 

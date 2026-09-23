@@ -123,7 +123,7 @@ cover = """
 <div style="font-size:13pt;color:#444">APAC 2026 edition (rev 5) &middot; Team TED Drive</div>
 <img class="photo" src="%s">
 <table class="meta">
-<tr><td>Team</td><td>Ethan Fernandes (software) &middot; Tejas Sirikonda (mechanical) &middot; Diaan (electronics)</td></tr>
+<tr><td>Team</td><td>Ethan Fernandes (software) &middot; Tejas Sirikonda (mechanical) &middot; Deeyan Mehta (electronics)</td></tr>
 <tr><td>Coach</td><td>Amey Chavan (OMOTEC)</td></tr>
 <tr><td>Competition</td><td>WRO Future Engineers 2026, APAC, Hyderabad, September 2026</td></tr>
 <tr><td>Repository</td><td><a href="https://github.com/teddriveomo/wro-2026-future-engineers">github.com/teddriveomo/wro-2026-future-engineers</a> (release 0.5.0 and later)</td></tr>
